@@ -7,23 +7,23 @@ const PORT = 8076;
 const BSHOST = '192.168.86.5'
 const BSPORT = 502
 
+
+// Protocol definition from https://epipreprod.evoqua.com/siteassets/documents/extranet/a_temp_ext_dis/blu-sentinel-se_w3t387175_wt.050.511.000.de.im.pdf
 const RF = {
     Float: 'Float',
     ASCII: 'ASCII',
     UInt16: 'UInt16',
     UInt32: 'UInt32'
 }
-
 const MODE_BITS = ['Manual', 'Auto', 'Controller Aus', 'Adaption running',, 'Controller stop',
     'Controller freeze', 'Controller Yout=100%',,,, 'Eco mode switching', 'Controller standby'];
 const ERROR_BITS = ['Zero point calibration', 'DPD calibration', 'pH7 calibration', 'phX calibration',
     'Error calibration eg. ORP', 'Offset calibration',, 'Cell error', 'Factory calibraiton error',,,
     'Setpoint error', 'Limit error', 'HOCL error',, 'Overfeed', 'Auto tune error'];
-
-// From https://epipreprod.evoqua.com/siteassets/documents/extranet/a_temp_ext_dis/blu-sentinel-se_w3t387175_wt.050.511.000.de.im.pdf
-// Weird that I have to subtract 1 from ascii register numbers
+const ALARM_BITS = ['1-Master', '2-Normal', '3-Normal', '4-Normal', '5-Normal', '6-Unknown', 
+    '7-Unknown', '8-Unknown'];
 const Registers = {
-    'System':   {reg: 1,  format: RF.ASCII, len: 20},
+    'System':   {reg: 1,   format: RF.ASCII, len: 20},
     'ClValue':  {reg: 100, format: RF.Float, round: 2},
     'ClUnit':   {reg: 102, format: RF.ASCII, len: 10},
     'ClSet':    {reg: 111, format: RF.Float, round: 1},
@@ -36,14 +36,15 @@ const Registers = {
     'ORPUnit':  {reg: 132, format: RF.ASCII, len: 10},
     'TempValue':{reg: 160, format: RF.Float, round: 1},
     'TempUnit': {reg: 162, format: RF.ASCII, len: 10},
-    'Alarms':   {reg: 300, format: RF.UInt16, 
-        bits: ['Alarm 1', 'Alarm 2', 'Alarm 3', 'Alarm 4', 'Alarm 5', 'Alarm 6', 'Alarm 7', 'Alarm 8']},
+    // Only Alarm 1 seems useful so far
+    'Alarms':   {reg: 300, format: RF.UInt16, bits: ALARM_BITS}, 
+    // Note: ClMode is 0 even under low chlorine error
     'ClMode':   {reg: 304, format: RF.UInt16, bits: MODE_BITS},
     'PhMode':   {reg: 305, format: RF.UInt16, bits: MODE_BITS},
-    'ClError':   {reg: 310, format: RF.UInt32, bits: ERROR_BITS},
-    'PhError':   {reg: 314, format: RF.UInt32, bits: ERROR_BITS},
-    'ORPError':   {reg: 318, format: RF.UInt32, bits: ERROR_BITS},
-    'TempError':   {reg: 328, format: RF.UInt32, bits: ERROR_BITS},
+    'ClError':  {reg: 310, format: RF.UInt32, bits: ERROR_BITS},
+    'PhError':  {reg: 314, format: RF.UInt32, bits: ERROR_BITS},
+    'ORPError': {reg: 318, format: RF.UInt32, bits: ERROR_BITS},
+    'TempError':{reg: 328, format: RF.UInt32, bits: ERROR_BITS},
 }
 
 const RegisterSets = {
@@ -174,7 +175,15 @@ async function generateOutput() {
             out += r + ': ' + await readRegister(client, Registers[r]) + '\n';
         }
         // It seems Alarm 1 is the meaningful alarm. 2-5 are always set. 
+
         // TODO: Fetch ajax_dataAlarms.json for details of alarms.
+        // Alarms like low chlorine may be here without any indication in the registers.
+        let res = await fetch('http://' + BSHOST + '/ajax_dataAlarms.json')
+        let dataAlarms = await res.json();
+        out += `Alarm Messages: ${dataAlarms.alarms}\n`
+        for (const am of dataAlarms.messages) {
+            out += `  ${am.sourceTxt}: ${am.msgTxt} [${am.rdate}]\n`
+        }
     } finally {       
         await close(client);
     }
@@ -189,7 +198,6 @@ const server = http.createServer((req, res) => {
         return;        
     }
 
-    console.log('Request received');
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
