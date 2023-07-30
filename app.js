@@ -193,7 +193,8 @@ async function generateOutput() {
 
 const app = express()
 app.use(express.static('static'))
-app.get('/', (req, res) => {
+
+app.get('/status.txt', (req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
