@@ -20,7 +20,7 @@ async function updateServerSubscription(subscription, subscribed) {
     if (resp.status !== 200) {
         status = `Subscription update failed: ${resp.status} ${resp.statusText}`;
     } else {
-        status = resp.text();
+        status = await resp.text();
     }
     $('substat').textContent = status;
 }
