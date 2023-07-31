@@ -1,9 +1,9 @@
 const Buffer = require('node:buffer');
-const http = require('http');
 const express = require('express')
 const webpush = require('web-push');
+const https = require('node:https');
+const fs = require('node:fs');
 
-const HOSTNAME = '127.0.0.1';
 const PORT = 8076;
 
 const BSHOST = '192.168.86.5';
@@ -18,6 +18,8 @@ const VAPID_PUBLIC_KEY = 'BNj1KsjxRwwFfYOnoOtvgy_T7DxCgfamSwblOsu1rlruiK23Qouk28
 const VAPID_PRIVATE_KEY = 'tD8J_t4kj2-aiE2BMT94kDTh7fyekg3QElFwcvgguJ4';
 
 const ALARM_POLL_SECONDS = 15;
+
+const CERT_DIR = '/etc/letsencrypt/live/home.rbyers.ca/';
 
 // Map of endpoint strings to subscription objects.
 // TODO: Persist this to disk
@@ -274,8 +276,13 @@ app.get('/testNotify', (req, res) => {
     res.send("Sent");
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+https.createServer({
+        key: fs.readFileSync(CERT_DIR + 'privkey.pem'),
+        cert: fs.readFileSync(CERT_DIR + 'cert.pem'),
+    },
+    app
+  ).listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
 });
 
 let lastAlarmDate = null;
