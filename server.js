@@ -17,7 +17,7 @@ const MAX_SUBSCRIPTIONS = 20;
 const VAPID_PUBLIC_KEY = 'BNj1KsjxRwwFfYOnoOtvgy_T7DxCgfamSwblOsu1rlruiK23Qouk28PrDdcY-2HJaSnTvMZpNG-hYLTqhzF_Sqg';
 const VAPID_PRIVATE_KEY = 'tD8J_t4kj2-aiE2BMT94kDTh7fyekg3QElFwcvgguJ4';
 
-const ALARM_POLL_SECONDS = 15;
+const ALARM_POLL_SECONDS = 60;
 
 const CERT_DIR = '/etc/letsencrypt/live/home.rbyers.ca/';
 
@@ -244,11 +244,11 @@ app.post('/subscribe', (req, res) => {
     const had = subscriptionMap.has(subscription.endpoint);
     subscriptionMap.set(subscription.endpoint, subscription);
     if (had) {
-        res.send("Updated");
+        res.send(`Subscription Updated (${subscriptionMap.size} subscriptions)`);
     } else {
         console.log('Subscribe: ' + subscription.endpoint);
         console.log('Total subscriptions: ' + subscriptionMap.size);    
-        res.send("Subscribed");
+        res.send(`Subscribed (${subscriptionMap.size} subscriptions)`);
     }
 });
 

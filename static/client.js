@@ -9,14 +9,20 @@ let swRegistration = null;
 async function updateServerSubscription(subscription, subscribed) {
     const endpoint = subscribed ? '/subscribe' : '/unsubscribe';
     const body = JSON.stringify(subscription);
-    console.log('Sending: ' + body);
-    const sent = await fetch(endpoint, {
+    const resp = await fetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: body
     });
+    let status;
+    if (resp.status !== 200) {
+        status = `Subscription update failed: ${resp.status} ${resp.statusText}`;
+    } else {
+        status = resp.text();
+    }
+    $('substat').textContent = status;
 }
 
 async function subscribe() {
@@ -92,7 +98,8 @@ async function init() {
 
         // Make sure the server still knows about our subscription.
         const sub = await swRegistration.pushManager.getSubscription();
-        await updateServerSubscription(sub, true);
+        if (sub)
+            await updateServerSubscription(sub, true);
     } 
 }
 
