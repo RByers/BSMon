@@ -233,6 +233,11 @@ app.get('/status.txt', (req, res) => {
     })*/;
 });
 
+app.get('/vapid_public_key.txt', (req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end(settings.vapid_public_key);
+});
+
 app.post('/subscribe', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     const subscription = req.body;
@@ -270,14 +275,30 @@ app.post('/unsubscribe', (req, res) => {
     }
 });
 
+async function sendNotifications(msg) {
+    const options = {
+        urgency: 'high'
+    };
+    let sent = 0;
+    
+    for(const subscription of subscriptionMap.values()) {
+        try {
+            await webpush.sendNotification(subscription, msg, options);
+            sent++;
+        } catch (err) {
+            console.log(`Error ${err.statusCode} sending notification to ${subscription.endpoint}: ${err}. ${err.body}`);
+        }
+    }
+    return sent;
+}
+
 app.get('/testNotify', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-    for(const subscription of subscriptionMap.values()) {
-        webpush.sendNotification(subscription, 'Test');
-    }
-    console.log(`Sent ${subscriptionMap.size} test notifications`);
-    res.send("Sent");
+    sendNotifications('Test').then((sent) => {
+        let status = `Sent ${sent}/${subscriptionMap.size} test notifications ` 
+        console.log(status);
+        res.send(status);
+    });
 });
 
 let server = null;
@@ -306,9 +327,7 @@ async function checkAlarms() {
             lastAlarmDate = rdate;
             const msg = `${am.sourceTxt}: ${am.msgTxt}`;
             console.log(`Sending alarm notification: ${msg} [${am.rdate}]`);
-            for(const subscription of subscriptionMap.values()) {
-                webpush.sendNotification(subscription, msg);
-            }
+            await sendNotifications(msg);
         }
     }
 }

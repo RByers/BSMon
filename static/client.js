@@ -1,5 +1,3 @@
-const VAPID_PUBLIC_KEY = 'BNj1KsjxRwwFfYOnoOtvgy_T7DxCgfamSwblOsu1rlruiK23Qouk28PrDdcY-2HJaSnTvMZpNG-hYLTqhzF_Sqg';
-
 function $(id) {
     return document.getElementById(id);
 }
@@ -26,9 +24,11 @@ async function updateServerSubscription(subscription, subscribed) {
 }
 
 async function subscribe() {
+    const vkresp = await fetch('/vapid_public_key.txt');
+    const vapidKey = (await vkresp.text()).trim();
     const subscription = await swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: VAPID_PUBLIC_KEY
+        applicationServerKey: vapidKey
     });
     await updateServerSubscription(subscription, true);
     console.log('User is subscribed:', subscription.toJSON());
