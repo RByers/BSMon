@@ -1,25 +1,17 @@
 const Buffer = require('node:buffer');
+const https = require('node:https');
+const http = require('node:http');
+const fs = require('node:fs');
 const express = require('express')
 const webpush = require('web-push');
-const https = require('node:https');
-const fs = require('node:fs');
 
-const PORT = 8076;
+const settings = require('./settings.json');
 
-const BSHOST = '192.168.86.5';
-const BSPORT = 502;
+const MODBUS_PORT = 502;
 
 // DOS mitigation
 // Could add a key to prevent abuse
 const MAX_SUBSCRIPTIONS = 20;
-
-// Generated with https://web-push-codelab.glitch.me/
-const VAPID_PUBLIC_KEY = 'BNj1KsjxRwwFfYOnoOtvgy_T7DxCgfamSwblOsu1rlruiK23Qouk28PrDdcY-2HJaSnTvMZpNG-hYLTqhzF_Sqg';
-const VAPID_PRIVATE_KEY = 'tD8J_t4kj2-aiE2BMT94kDTh7fyekg3QElFwcvgguJ4';
-
-const ALARM_POLL_SECONDS = 60;
-
-const CERT_DIR = '/etc/letsencrypt/live/home.rbyers.ca/';
 
 // Map of endpoint strings to subscription objects.
 // TODO: Persist this to disk
@@ -162,7 +154,7 @@ async function getRegisterSet(client, rs) {
 
 function connect(client) {
     return new Promise((resolve, reject) => {
-        client.connectTCP(BSHOST, { port: BSPORT }, () => {
+        client.connectTCP(settings.bshost, { port: MODBUS_PORT }, () => {
             client.setID(1);
             resolve();
         });
@@ -176,7 +168,7 @@ function close(client) {
 }
 
 async function getAlarmData() {
-    let res = await fetch('http://' + BSHOST + '/ajax_dataAlarms.json')
+    let res = await fetch('http://' + settings.bshost + '/ajax_dataAlarms.json')
     let dataAlarms = await res.json();
     return dataAlarms;
 }   
@@ -216,9 +208,9 @@ app.use(express.static('static'))
 app.use(express.json({limit: 1024})); 
 
 webpush.setVapidDetails(
-    'mailto:rick@rbyers.net',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
+    settings.vapid_contact,
+    settings.vapid_public_key,
+    settings.vapid_private_key
   );
 
 app.get('/status.txt', (req, res) => {
@@ -276,13 +268,21 @@ app.get('/testNotify', (req, res) => {
     res.send("Sent");
 });
 
-https.createServer({
-        key: fs.readFileSync(CERT_DIR + 'privkey.pem'),
-        cert: fs.readFileSync(CERT_DIR + 'cert.pem'),
+let server = null;
+let mode = null;
+if (settings.tls_private_key_file && settings.tls_cert_file) {
+    server = https.createServer({
+        key: fs.readFileSync(settings.tls_private_key_file),
+        cert: fs.readFileSync(settings.tls_cert_file),
     },
-    app
-  ).listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
+    app)
+    mode = 'https';
+} else {
+    server = http.createServer(app);
+    mode = 'http';
+}
+server.listen(settings.port, () => {
+    console.log(`Server listening with ${mode} on port ${settings.port}`);
 });
 
 let lastAlarmDate = null;
@@ -303,7 +303,7 @@ async function checkAlarms() {
 
 function pollAlarms() {
     checkAlarms().then(() => {
-        setTimeout(pollAlarms, ALARM_POLL_SECONDS * 1000);
+        setTimeout(pollAlarms, settings.alarm_poll_seconds * 1000);
     });
 }
 pollAlarms();
