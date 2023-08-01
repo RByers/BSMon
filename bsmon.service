@@ -1,0 +1,11 @@
+[Unit]
+Description=BSMon
+After=network.target
+
+[Service]
+WorkingDirectory=/home/rick/code/BSMon
+ExecStart=/usr/bin/node server.js
+User=rick
+
+[Install]
+WantedBy=multi-user.target
