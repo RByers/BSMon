@@ -320,11 +320,13 @@ server.listen(settings.port, () => {
 
 let lastAlarmDate = null;
 async function checkAlarms() {
+    let dataAlarms = null;
     try {
-        const dataAlarms = await getAlarmData();
+        dataAlarms = await getAlarmData();
     } catch(err) {
         // TODO: Send one notification for connectivity failure.
         console.log(`Error getting alarm data: ${err}`);
+        return;
     }
     for (const am of dataAlarms.messages) {
         const rdate = new Date(am.rdate);
