@@ -14,8 +14,18 @@ const MODBUS_PORT = 502;
 const MAX_SUBSCRIPTIONS = 20;
 
 // Map of endpoint strings to subscription objects.
-// TODO: Persist this to disk
-const subscriptionMap = new Map();
+let subscriptionMap;
+const SUBSCRIPTIONS_FILE = 'subscriptions.json';
+if( fs.existsSync(SUBSCRIPTIONS_FILE) ) {
+    subsJson = fs.readFileSync(SUBSCRIPTIONS_FILE, 'utf8');
+    subscriptionMap = new Map(Object.entries(JSON.parse(subsJson)));
+} else {
+    subscriptionMap = new Map();
+}
+function writeSubscriptions() {
+    let obj = Object.fromEntries(subscriptionMap);
+    fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(obj));
+}
 
 // Protocol definition from https://epipreprod.evoqua.com/siteassets/documents/extranet/a_temp_ext_dis/blu-sentinel-se_w3t387175_wt.050.511.000.de.im.pdf
 const RF = {
@@ -235,12 +245,13 @@ app.post('/subscribe', (req, res) => {
 
     const had = subscriptionMap.has(subscription.endpoint);
     subscriptionMap.set(subscription.endpoint, subscription);
+    writeSubscriptions();    
     if (had) {
-        res.send(`Subscription Updated (${subscriptionMap.size} subscriptions)`);
+        res.send(`Existing subscription (${subscriptionMap.size} total)`);
     } else {
-        console.log('Subscribe: ' + subscription.endpoint);
-        console.log('Total subscriptions: ' + subscriptionMap.size);    
-        res.send(`Subscribed (${subscriptionMap.size} subscriptions)`);
+        let status = `New subscription (${subscriptionMap.size} total)`
+        console.log(`Client ${req.ip}: ${status}`);
+        res.send(status);
     }
 });
 
@@ -250,9 +261,10 @@ app.post('/unsubscribe', (req, res) => {
 
     if(subscriptionMap.has(subscription.endpoint)) {
         subscriptionMap.delete(subscription.endpoint);
-        console.log('Unsubscribe: ' + subscription.endpoint);
-        console.log('Total subscriptions: ' + subscriptionMap.size);    
-        res.send("Unsubscribed");
+        writeSubscriptions();
+        let status = `Unsubscribed (${subscriptionMap.size} total)`
+        console.log(`Client ${req.ip}: ${status}`);
+        res.send(status);
     } else {
         res.send("Not subscribed");
     }
