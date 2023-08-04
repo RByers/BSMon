@@ -16,7 +16,7 @@ async function updateServerSubscription(subscribed) {
         let check = $(checkids[i]);
         let text = $(textids[i]);
         if (check.checked)
-            subset[text.id] = text.value;
+            subset[text.id] = parseFloat(text.value);
     }
 
     const body = JSON.stringify({
