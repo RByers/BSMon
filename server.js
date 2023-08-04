@@ -4,6 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const express = require('express')
 const webpush = require('web-push');
+const ModbusRTU = require("modbus-serial");
 
 const settings = require('./settings.json');
 
@@ -184,11 +185,7 @@ async function getAlarmData() {
 }   
 
 async function generateOutput() {
-    // create an empty modbus client
-    const ModbusRTU = require("modbus-serial");
     const client = new ModbusRTU();
-
-    // open connection to a tcp line
     await connect(client);
     try {
         out = 'System: ' + await readRegister(client, Registers.System) + '\n';
@@ -228,9 +225,7 @@ app.get('/status.txt', (req, res) => {
 
     generateOutput().then((data) => {
         res.end(data);
-    })/*.catch((err) => {
-        res.end('Error: ' + err);
-    })*/;
+    });
 });
 
 app.get('/vapid_public_key.txt', (req, res) => {
@@ -240,7 +235,8 @@ app.get('/vapid_public_key.txt', (req, res) => {
 
 app.post('/subscribe', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    const subscription = req.body;
+    const data = req.body;
+    const subscription = data.subscription;
 
     if (subscriptionMap.size > MAX_SUBSCRIPTIONS) {
         console.log("Too many subscriptions");
@@ -249,8 +245,8 @@ app.post('/subscribe', (req, res) => {
     }
 
     const had = subscriptionMap.has(subscription.endpoint);
-    subscriptionMap.set(subscription.endpoint, subscription);
-    writeSubscriptions();    
+    subscriptionMap.set(subscription.endpoint, data);
+    writeSubscriptions();
     if (had) {
         res.send(`Existing subscription (${subscriptionMap.size} total)`);
     } else {
@@ -262,7 +258,7 @@ app.post('/subscribe', (req, res) => {
 
 app.post('/unsubscribe', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    const subscription = req.body;
+    const subscription = req.body.subscription;
 
     if(subscriptionMap.has(subscription.endpoint)) {
         subscriptionMap.delete(subscription.endpoint);
@@ -281,12 +277,12 @@ async function sendNotifications(msg) {
     };
     let sent = 0;
     
-    for(const subscription of subscriptionMap.values()) {
+    for(const subdata of subscriptionMap.values()) {
         try {
-            await webpush.sendNotification(subscription, msg, options);
+            await webpush.sendNotification(subdata.subscription, msg, options);
             sent++;
         } catch (err) {
-            console.log(`Error ${err.statusCode} sending notification to ${subscription.endpoint}: ${err}. ${err.body}`);
+            console.log(`Error ${err.statusCode} sending notification to ${subdata.subscription.endpoint}: ${err}. ${err.body}`);
         }
     }
     return sent;
@@ -336,6 +332,35 @@ async function checkAlarms() {
             console.log(`Sending alarm notification: ${msg} [${am.rdate}]`);
             await sendNotifications(msg);
         }
+    }
+
+    const client = new ModbusRTU();
+    await connect(client);
+    try {
+        const maxMap = {
+            'clyout-max': Registers.ClYout,
+            'acidyout-max': Registers.PhYout
+        }
+        for (let maxset in maxMap) {
+            for (const subdata of subscriptionMap.values()) {
+                let set = subdata.settings;
+                let val = await readRegister(client, maxMap[maxset]);
+                if (set[maxset]) {
+                    if (val > set[maxset]) {
+                        if (!set['notified-' + maxset]) {
+                            console.log(`Sending ${maxset} notification: ${val}% > ${set[maxset]}%`);
+                            await webpush.sendNotification(subdata.subscription, 
+                                `Exceeded ${maxset}: ${val}%`);
+                            set['notified-' + maxset] = true;
+                        }
+                    } else {
+                        set['notified-' + maxset] = false;
+                    }
+                }
+            }
+        }
+    } finally {
+        await close(client);
     }
 }
 
