@@ -14,7 +14,9 @@ const MODBUS_PORT = 502;
 // Could add a key to prevent abuse
 const MAX_SUBSCRIPTIONS = 20;
 
-// Map of endpoint strings to subscription objects.
+// Map of endpoint strings to objects with the following properties:
+//  'subscription': The subscription object used directly by WebPush
+//  'settings': UI options for notifications, eg. "clyout-max".
 let subscriptionMap;
 const SUBSCRIPTIONS_FILE = 'subscriptions.json';
 if( fs.existsSync(SUBSCRIPTIONS_FILE) ) {
@@ -238,11 +240,17 @@ app.post('/subscribe', (req, res) => {
     const data = req.body;
     const subscription = data.subscription;
 
+    if (!subscription || !subscription.endpoint || !data.settings) {
+        res.status(500).send('Invalid subscription format');
+        return;
+    }
+
     if (subscriptionMap.size > MAX_SUBSCRIPTIONS) {
         console.log("Too many subscriptions");
         res.status(500).send('Too many subscriptions');
         return;
     }
+
 
     const had = subscriptionMap.has(subscription.endpoint);
     subscriptionMap.set(subscription.endpoint, data);
@@ -334,30 +342,42 @@ async function checkAlarms() {
         }
     }
 
+    // Look for register values which have exceeded the maximums registered
+    // in notification subscriptions.
     const client = new ModbusRTU();
     await connect(client);
+    let writeSubs = false;
     try {
         const maxMap = {
             'clyout-max': Registers.ClYout,
             'acidyout-max': Registers.PhYout
         }
         for (let maxset in maxMap) {
+            const notkey = 'notified-' + maxset;
             for (const subdata of subscriptionMap.values()) {
-                let set = subdata.settings;
+                let ss = subdata.settings;
                 let val = await readRegister(client, maxMap[maxset]);
-                if (set[maxset]) {
-                    if (val > set[maxset]) {
-                        if (!set['notified-' + maxset]) {
-                            console.log(`Sending ${maxset} notification: ${val}% > ${set[maxset]}%`);
+                if (ss[maxset]) {
+                    // Notify once when the maximum is exceeded, don't notify again until
+                    // the value drops below the maximum.
+                    // TODO: Could we track notification dismissal instead?
+                    if (val > ss[maxset]) {
+                        if (!ss[notkey]) {
+                            console.log(`Sending ${maxset} notification: ${val}% > ${ss[maxset]}%`);
                             await webpush.sendNotification(subdata.subscription, 
                                 `Exceeded ${maxset}: ${val}%`);
-                            set['notified-' + maxset] = true;
+                            ss[notkey] = true;
+                            writeSubs = true;
                         }
-                    } else {
-                        set['notified-' + maxset] = false;
+                    } else if (ss[notkey]) {
+                        ss[notkey] = false;
+                        writeSubs = true;
                     }
                 }
             }
+        }
+        if (writeSubs) {
+           writeSubscriptions();
         }
     } finally {
         await close(client);
