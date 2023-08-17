@@ -123,8 +123,6 @@ function readRegister(client, register) {
                 switch(register.format) {
                     case RF.Float:
                         let floatVal = data.buffer.readFloatBE();
-                        if ('round' in register)
-                            floatVal = floatVal.toFixed(register.round);
                         resolve(floatVal);
                         break;
                     case RF.ASCII:
@@ -149,17 +147,25 @@ function readRegister(client, register) {
     });
 }
 
+async function readRegisterRounded(client, register) {
+    let val = await readRegister(client, register);
+    if (register.round) {
+        return val.toFixed(register.round);
+    }
+    return val.toString();
+}
+
 async function getRegisterSet(client, rs) {
-    let value = await readRegister(client, rs.value);
+    let value = await readRegisterRounded(client, rs.value);
     let unit = await readRegister(client, rs.unit);
 
     let out = `${value} ${unit}`;
     if (rs.setpoint) {
-        let setpoint = await readRegister(client, rs.setpoint);
+        let setpoint = await readRegisterRounded(client, rs.setpoint);
         out += `, setpoint: ${setpoint}`;
     }
     if (rs.yout) {
-        let yout = await readRegister(client, rs.yout);
+        let yout = await readRegisterRounded(client, rs.yout);
         out += `, yout: ${yout}%`;
     }
     return out;
@@ -322,6 +328,68 @@ server.listen(settings.port, () => {
     console.log(`Server listening with ${mode} on port ${settings.port}`);
 });
 
+// Keep a log file of register values for graphing.
+// Average samples across our polling period to keep the number of log entries
+// managable. 
+const registersToLog = [
+    'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
+let regAccum = {};
+let accumSamples = 0;
+let lastLogEntry = new Date();
+async function updateLog(client) {
+    // First read all the register values we're interested in
+    // If any are going to fail, we don't want to update any of the accumulated values.
+    let regValues = {};
+    for (r of registersToLog) {
+        let val = await readRegister(client, Registers[r]);
+        if (typeof val != 'number') {
+            throw new Error(`Invalid value for ${r}: ${typeof val}`);
+        }
+        regValues[r] = val;
+    }
+    // Update accumulated values for computing a mean
+    for (r of registersToLog) {
+        if (!(r in regAccum))
+            regAccum[r] = 0;
+        regAccum[r] += regValues[r];
+    }
+    accumSamples++;
+
+    // If it's been log_entry_minutes since the last log entry, write a new one
+    const now = new Date();
+    if (now - lastLogEntry >= settings.log_entry_minutes * 60 * 1000) {
+        // Compute a logfile name for the month and year
+        const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
+
+        // If the log file doesn't exist yet, created it with an appropriate header
+        let out = '';
+        if (!fs.existsSync(logFileName)) {
+            out = 'Time';
+            for (r of registersToLog) {
+                out += ',' + r;
+            }
+            out += '\n';
+        }
+
+        // Write the new mean data to the log file
+        // Use a date format easily parsed by Google Sheets
+        const zeroPad = (num) => String(num).padStart(2, '0')
+        out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` + 
+            `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
+        for (r of registersToLog) {
+            out += ',' + (regAccum[r] / accumSamples).toFixed(Registers[r].round || 0);
+            regAccum[r] = 0;
+        }
+        out += '\n';
+        fs.appendFileSync(logFileName, out);
+
+        // Reset state for next log entry
+        lastLogEntry = now;
+        accumSamples = 0;
+        regAccum = {};
+    }
+}
+
 let lastAlarmDate = null;
 async function checkAlarms() {
     let dataAlarms = null;
@@ -379,6 +447,8 @@ async function checkAlarms() {
         if (writeSubs) {
            writeSubscriptions();
         }
+
+        await updateLog(client);
     } finally {
         await close(client);
     }

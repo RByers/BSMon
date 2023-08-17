@@ -1,3 +1,4 @@
 node_modules/
 settings.json
 subscriptions.json
+static/log-*.csv
