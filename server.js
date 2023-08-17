@@ -2,9 +2,10 @@ const Buffer = require('node:buffer');
 const https = require('node:https');
 const http = require('node:http');
 const fs = require('node:fs');
+const assert = require('node:assert');
 const express = require('express')
 const webpush = require('web-push');
-const ModbusRTU = require("modbus-serial");
+const ModbusRTU = require('modbus-serial');
 
 const settings = require('./settings.json');
 
@@ -149,12 +150,15 @@ function readRegister(client, register) {
     });
 }
 
-async function readRegisterRounded(client, register) {
-    let val = await readRegister(client, register);
-    if (register.round) {
+function roundRegister(val, register) {
+    if (`round` in register) {
         return val.toFixed(register.round);
     }
     return val.toString();
+}
+async function readRegisterRounded(client, register) {
+    let val = await readRegister(client, register);
+    return roundRegister(val, register);
 }
 
 async function getRegisterSet(client, rs) {
@@ -400,7 +404,7 @@ async function checkAlarms() {
     try {
         dataAlarms = await getAlarmData();
     } catch(err) {
-        // TODO: Send one notification for connectivity failure.
+        // TODO: Send one notification for connectivity failure?
         console.log(`Error getting alarm data: ${err}`);
         return;
     }
@@ -429,15 +433,16 @@ async function checkAlarms() {
             for (const subdata of subscriptionMap.values()) {
                 let ss = subdata.settings;
                 let val = await readRegister(client, maxMap[maxset]);
+                assert(typeof val == 'number', `Invalid value for ${maxset}: ${typeof val}`)
                 if (ss[maxset]) {
                     // Notify once when the maximum is exceeded, don't notify again until
                     // the value drops below the maximum.
                     // TODO: Could we track notification dismissal instead?
                     if (val > ss[maxset]) {
                         if (!ss[notkey]) {
-                            console.log(`Sending ${maxset} notification: ${val}% > ${ss[maxset]}%`);
+                            const vr = roundRegister(val, maxMap[maxset]);                
                             await webpush.sendNotification(subdata.subscription, 
-                                `Exceeded ${maxset}: ${val}%`);
+                                `Exceeded ${maxset}: ${vr}%`);
                             ss[notkey] = true;
                             writeSubs = true;
                         }
