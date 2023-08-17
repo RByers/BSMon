@@ -16,7 +16,9 @@ const MAX_SUBSCRIPTIONS = 20;
 
 // Map of endpoint strings to objects with the following properties:
 //  'subscription': The subscription object used directly by WebPush
-//  'settings': UI options for notifications, eg. "clyout-max".
+//  'settings': UI options for notifications, eg. "clyout-max"
+//  'lastSeen': Date object when the client last connected
+//  'lastIP': most recent IP address of the client
 let subscriptionMap;
 const SUBSCRIPTIONS_FILE = 'subscriptions.json';
 if( fs.existsSync(SUBSCRIPTIONS_FILE) ) {
@@ -259,6 +261,8 @@ app.post('/subscribe', (req, res) => {
 
 
     const had = subscriptionMap.has(subscription.endpoint);
+    data.lastSeen = new Date();
+    data.lastIP = req.ip;
     subscriptionMap.set(subscription.endpoint, data);
     writeSubscriptions();
     if (had) {
