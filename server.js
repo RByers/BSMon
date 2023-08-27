@@ -458,6 +458,9 @@ async function checkAlarms() {
         }
 
         await updateLog(client);
+    } catch(err) {
+        console.log(`Error polling registers: ${err}`);
+        return;
     } finally {
         await close(client);
     }
