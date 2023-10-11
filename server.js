@@ -239,6 +239,8 @@ app.get('/status.txt', (req, res) => {
 
     generateOutput().then((data) => {
         res.end(data);
+    }).catch((error) => {
+        res.end("ERROR: " + error.message);
     });
 });
 

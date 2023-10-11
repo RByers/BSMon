@@ -122,6 +122,7 @@ function saveDebounce() {
 }
 
 async function init() {
+    $('status').innerHTML = "Loading...";
     let data = await fetch('/status.txt');
     $('status').innerHTML = await data.text();
 
