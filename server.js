@@ -426,25 +426,28 @@ async function checkAlarms() {
     await connect(client);
     let writeSubs = false;
     try {
-        const maxMap = {
-            'clyout-max': Registers.ClYout,
-            'acidyout-max': Registers.PhYout
+        const limitMap = {
+            'clyout-max': { 'r': Registers.ClYout, 'max': true},
+            'acidyout-max': { 'r': Registers.PhYout, 'max': true},
+            'temp-min': { 'r': Registers.TempValue, 'max': false}
         }
-        for (let maxset in maxMap) {
-            const notkey = 'notified-' + maxset;
+        for (let limitSet in limitMap) {
+            const notkey = 'notified-' + limitSet;
+            let val = await readRegister(client, limitMap[limitSet].r);
+            assert(typeof val == 'number', `Invalid value for ${limitSet}: ${typeof val}`);
+            const isMax = limitMap[limitSet].max;
+            const compare = isMax ? (a,b) => (a>b) : (a,b) => (a<b);
             for (const subdata of subscriptionMap.values()) {
                 let ss = subdata.settings;
-                let val = await readRegister(client, maxMap[maxset]);
-                assert(typeof val == 'number', `Invalid value for ${maxset}: ${typeof val}`)
-                if (ss[maxset]) {
-                    // Notify once when the maximum is exceeded, don't notify again until
-                    // the value drops below the maximum.
+                if (ss[limitSet]) {
+                    // Notify once when the limit is exceeded, don't notify again until
+                    // after the value has returned to normal range.
                     // TODO: Could we track notification dismissal instead?
-                    if (val > ss[maxset]) {
+                    if (compare(val, ss[limitSet])) {
                         if (!ss[notkey]) {
-                            const vr = roundRegister(val, maxMap[maxset]);                
+                            const vr = roundRegister(val, limitMap[limitSet].r);                
                             await webpush.sendNotification(subdata.subscription, 
-                                `Exceeded ${maxset}: ${vr}%`);
+                                `${isMax ? 'Exceeded' : 'Dropped below'} ${limitSet}: ${vr}`);
                             ss[notkey] = true;
                             writeSubs = true;
                         }

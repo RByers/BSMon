@@ -5,8 +5,8 @@ function $(id) {
 let swRegistration = null;
 let subscription = null;
 
-const checkids = ["n-clyout", "n-acidyout"];
-const textids = ["clyout-max", "acidyout-max"];
+const checkids = ["n-clyout", "n-acidyout", "n-temp"];
+const textids = ["clyout-max", "acidyout-max", "temp-min"];
 
 async function updateServerSubscription(subscribed) {
     const endpoint = subscribed ? '/subscribe' : '/unsubscribe';
@@ -135,7 +135,9 @@ async function init() {
             let check = $(checkids[i]);
             check.checked = localStorage.getItem(check.id) == "true";
             let text = $(textids[i]);
-            text.value = localStorage.getItem(text.id) || "10";
+            val = localStorage.getItem(text.id);
+            if (val)
+                text.value = val;
             check.onchange = function() {
                 text.disabled = !check.checked;
                 saveDebounce();
