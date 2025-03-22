@@ -7,5 +7,6 @@
     "alarm_poll_seconds": 60,
     "log_entry_minutes": 10,
     "tls_private_key_file": "",
-    "tls_cert_file": ""
+    "tls_cert_file": "",
+    "use_fake_controller": false
 }

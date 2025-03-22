@@ -6,6 +6,7 @@ const assert = require('node:assert');
 const express = require('express')
 const webpush = require('web-push');
 const ModbusRTU = require('modbus-serial');
+const FakeController = require('./fake-controller');
 
 const settings = require('./settings.json');
 
@@ -193,13 +194,22 @@ function close(client) {
 }
 
 async function getAlarmData() {
+    if (settings.use_fake_controller) {
+        // Return empty alarm data for fake controller
+        return {
+            alarms: "No alarms",
+            messages: []
+        };
+    }
+    
+    // Real controller
     let res = await fetch('http://' + settings.bshost + '/ajax_dataAlarms.json')
     let dataAlarms = await res.json();
     return dataAlarms;
 }   
 
 async function generateOutput() {
-    const client = new ModbusRTU();
+    const client = settings.use_fake_controller ? new FakeController() : new ModbusRTU();
     await connect(client);
     try {
         out = 'System: ' + await readRegister(client, Registers.System) + '\n';
@@ -422,7 +432,7 @@ async function checkAlarms() {
 
     // Look for register values which have exceeded the maximums registered
     // in notification subscriptions.
-    const client = new ModbusRTU();
+    const client = settings.use_fake_controller ? new FakeController() : new ModbusRTU();
     await connect(client);
     let writeSubs = false;
     try {
