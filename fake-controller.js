@@ -52,7 +52,7 @@ class FakeController {
       return buffer;
     }
     if (register === 102) { // ClUnit
-      const text = "mg/l";
+      const text = "ppm";
       const buf = Buffer.from(text.padEnd(10, '\0'), 'latin1');
       return buf.swap16();
     }

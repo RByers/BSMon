@@ -5,13 +5,144 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>BSMon</title>
     <link rel="stylesheet" href="style.css">
-    <pre id="status"></pre>
-    <div id="settings">
-        <button id=notify disabled>Enable notifications</button>
-        <div id="substat">Not subscribed</div>
-        <input type="checkbox" id="n-clyout">Cl yout max <input type="number" id="clyout-max" value="10" min="0" max="100">%<br>
-        <input type="checkbox" id="n-acidyout">Acid yout max <input type="number" id="acidyout-max" value="10" min="0" max="100">%<br>
-        <input type="checkbox" id="n-temp">Temp min <input type="number" id="temp-min" value="50" min="0" max="100"">°<br>
-    </div>
+</head>
+<body>
+    <header>
+        <h1>BSMon</h1>
+    </header>
+    
+    <main>
+        <!-- Hidden pre element to store raw status data -->
+        <pre id="status" class="hidden"></pre>
+        
+        <!-- Metric Cards Section -->
+        <section class="metrics-grid">
+            <!-- Chlorine Card -->
+            <div class="metric-card" id="chlorine-card">
+                <h2>Chlorine</h2>
+                <div class="metric-value" id="cl-value">Loading...</div>
+                <div class="metric-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Setpoint:</span>
+                        <span class="detail-value" id="cl-setpoint">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Output:</span>
+                        <span class="detail-value" id="cl-output">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- pH Card -->
+            <div class="metric-card" id="ph-card">
+                <h2>pH</h2>
+                <div class="metric-value" id="ph-value">Loading...</div>
+                <div class="metric-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Setpoint:</span>
+                        <span class="detail-value" id="ph-setpoint">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Output:</span>
+                        <span class="detail-value" id="ph-output">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ORP Card -->
+            <div class="metric-card" id="orp-card">
+                <h2>ORP</h2>
+                <div class="metric-value" id="orp-value">Loading...</div>
+            </div>
+            
+            <!-- Temperature Card -->
+            <div class="metric-card" id="temp-card">
+                <h2>Temperature</h2>
+                <div class="metric-value" id="temp-value">Loading...</div>
+            </div>
+            
+            <!-- System Status Card -->
+            <div class="metric-card system-status" id="system-card">
+                <h2>System Status</h2>
+                <div class="status-details" id="system-details">
+                    <div id="system-name">Loading...</div>
+                    <div id="cl-mode">ClMode: -</div>
+                    <div id="ph-mode">PhMode: -</div>
+                </div>
+            </div>
+            
+            <!-- Alarms Card -->
+            <div class="metric-card alarms" id="alarms-card">
+                <h2>Alarms</h2>
+                <div class="status-details" id="alarm-details">
+                    <div id="alarm-messages">No alarms</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Raw Data Section -->
+        <section class="raw-data-section">
+            <button id="view-raw-data" class="secondary-button">View Raw Data</button>
+            <div id="raw-data-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Raw Controller Data</h2>
+                        <button id="close-raw-data" class="close-button">&times;</button>
+                    </div>
+                    <pre id="raw-status" class="raw-status">Loading...</pre>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Notification Settings Section -->
+        <section class="settings-panel">
+            <h2>Notification Settings</h2>
+            <button id="notify" disabled class="primary-button">Enable notifications</button>
+            <div id="substat" class="subscription-status">Not subscribed</div>
+            
+            <div class="threshold-controls">
+                <!-- Chlorine output control -->
+                <div class="control-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="n-clyout">
+                        <span class="toggle-switch"></span>
+                        <span>Cl output max</span>
+                    </label>
+                    <div class="input-with-unit">
+                        <input type="number" id="clyout-max" value="10" min="0" max="100">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+                
+                <!-- Acid output control -->
+                <div class="control-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="n-acidyout">
+                        <span class="toggle-switch"></span>
+                        <span>Acid output max</span>
+                    </label>
+                    <div class="input-with-unit">
+                        <input type="number" id="acidyout-max" value="10" min="0" max="100">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+                
+                <!-- Temperature control -->
+                <div class="control-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="n-temp">
+                        <span class="toggle-switch"></span>
+                        <span>Temp min</span>
+                    </label>
+                    <div class="input-with-unit">
+                        <input type="number" id="temp-min" value="50" min="0" max="100">
+                        <span class="unit">°</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
     <script src="client.js"></script>
+</body>
 </html>

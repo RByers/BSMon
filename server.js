@@ -254,6 +254,64 @@ app.get('/status.txt', (req, res) => {
     });
 });
 
+app.get('/api/status', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    
+    try {
+        const client = settings.use_fake_controller ? new FakeController() : new ModbusRTU();
+        await connect(client);
+        
+        try {
+            // Gather all data in structured format
+            const statusData = {
+                system: {
+                    name: await readRegister(client, Registers.System),
+                    clMode: await readRegister(client, Registers.ClMode),
+                    phMode: await readRegister(client, Registers.PhMode),
+                    clError: await readRegister(client, Registers.ClError),
+                    phError: await readRegister(client, Registers.PhError),
+                    orpError: await readRegister(client, Registers.ORPError),
+                    tempError: await readRegister(client, Registers.TempError),
+                    alarms: await readRegister(client, Registers.Alarms)
+                },
+                chlorine: {
+                    value: await readRegister(client, Registers.ClValue),
+                    unit: "ppm", // Changed from mg/l to ppm as requested
+                    setpoint: await readRegister(client, Registers.ClSet),
+                    output: await readRegister(client, Registers.ClYout)
+                },
+                ph: {
+                    value: await readRegister(client, Registers.PhValue),
+                    unit: await readRegister(client, Registers.PhUnit),
+                    setpoint: await readRegister(client, Registers.PhSet),
+                    output: await readRegister(client, Registers.PhYout)
+                },
+                orp: {
+                    value: await readRegister(client, Registers.ORPValue),
+                    unit: await readRegister(client, Registers.ORPUnit)
+                },
+                temperature: {
+                    value: await readRegister(client, Registers.TempValue),
+                    unit: await readRegister(client, Registers.TempUnit)
+                }
+            };
+            
+            // Get alarm messages
+            const alarmData = await getAlarmData();
+            statusData.alarmMessages = {
+                summary: alarmData.alarms,
+                details: alarmData.messages
+            };
+            
+            res.json(statusData);
+        } finally {
+            await close(client);
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/vapid_public_key.txt', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(settings.vapid_public_key);
