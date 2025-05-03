@@ -102,9 +102,9 @@ main {
     font-weight: 500;
 }
 
-/* System status and alarms cards */
-.system-status, .alarms {
-    grid-column: span 2;
+/* Alarms card */
+.alarms {
+    grid-column: 1 / -1; /* Make alarms span full width */
 }
 
 .status-details {
@@ -350,9 +350,7 @@ main {
         grid-template-columns: 1fr;
     }
     
-    .system-status, .alarms {
-        grid-column: span 1;
-    }
+    /* No need to override alarms as it will still be full width */
     
     .control-group {
         justify-content: flex-start;

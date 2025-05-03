@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>BSMon</title>
+    <title id="page-title-tag">BSMon</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>BSMon</h1>
+        <h1 id="page-title">BSMon</h1>
     </header>
     
     <main>
@@ -31,7 +31,7 @@
                 <div class="metric-value" id="cl-value">Loading...</div>
                 <div class="metric-details">
                     <div class="detail-item">
-                        <span class="detail-label">Setpoint:</span>
+                        <span class="detail-label">Set:</span>
                         <span class="detail-value" id="cl-setpoint">-</span>
                     </div>
                     <div class="detail-item">
@@ -47,7 +47,7 @@
                 <div class="metric-value" id="ph-value">Loading...</div>
                 <div class="metric-details">
                     <div class="detail-item">
-                        <span class="detail-label">Setpoint:</span>
+                        <span class="detail-label">Set:</span>
                         <span class="detail-value" id="ph-setpoint">-</span>
                     </div>
                     <div class="detail-item">
@@ -69,15 +69,6 @@
                 <div class="metric-value" id="temp-value">Loading...</div>
             </div>
             
-            <!-- System Status Card -->
-            <div class="metric-card system-status" id="system-card">
-                <h2>System Status</h2>
-                <div class="status-details" id="system-details">
-                    <div id="system-name">Loading...</div>
-                    <div id="cl-mode">ClMode: -</div>
-                    <div id="ph-mode">PhMode: -</div>
-                </div>
-            </div>
         </section>
         
         <!-- Raw Data Section -->

@@ -147,11 +147,10 @@ function updateUI(data) {
         $('temp-value').textContent = `${data.temperature.value.toFixed(1)} ${data.temperature.unit}`;
     }
     
-    // Update System Status
-    if (data.system) {
-        $('system-name').textContent = `System: ${data.system.name}`;
-        $('cl-mode').textContent = `ClMode: ${data.system.clMode}`;
-        $('ph-mode').textContent = `PhMode: ${data.system.phMode}`;
+    // Update Page Title with System Name
+    if (data.system && data.system.name) {
+        $('page-title').textContent = `BSMon: ${data.system.name}`;
+        $('page-title-tag').textContent = `BSMon: ${data.system.name}`;
     }
     
     // Update Alarms
