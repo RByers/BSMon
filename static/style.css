@@ -113,6 +113,20 @@ main {
     gap: 8px;
 }
 
+/* Alarm styling */
+.alarm-active {
+    background-color: #fff8f8;
+    border-left: 4px solid var(--error-color);
+}
+
+.alarm-active h2 {
+    color: var(--error-color);
+}
+
+.alarm-active #alarm-messages {
+    font-weight: 500;
+}
+
 /* Settings panel */
 .settings-panel {
     background: white;

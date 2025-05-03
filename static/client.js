@@ -156,7 +156,9 @@ function updateUI(data) {
     
     // Update Alarms
     if (data.alarmMessages) {
+        const alarmsCard = $('alarms-card');
         let alarmHtml = '';        
+        
         if (data.alarmMessages.messages && data.alarmMessages.messages.length > 0) {
             // Create formatters for date and time
             const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -183,6 +185,14 @@ function updateUI(data) {
                 
                 alarmHtml += `<div>${alarm.sourceTxt}: ${alarm.msgTxt} [${formattedDateTime}]</div>`;
             });
+            
+            // Show alarms card and apply active styling
+            alarmsCard.classList.remove('hidden');
+            alarmsCard.classList.add('alarm-active');
+        } else {
+            // Hide alarms card when no alarms
+            alarmsCard.classList.add('hidden');
+            alarmsCard.classList.remove('alarm-active');
         }
         
         $('alarm-messages').innerHTML = alarmHtml;

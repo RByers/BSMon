@@ -17,6 +17,14 @@
         
         <!-- Metric Cards Section -->
         <section class="metrics-grid">
+            <!-- Alarms Card -->
+            <div class="metric-card alarms hidden" id="alarms-card">
+                <h2>Alarms</h2>
+                <div class="status-details" id="alarm-details">
+                    <div id="alarm-messages">No alarms</div>
+                </div>
+            </div>
+            
             <!-- Chlorine Card -->
             <div class="metric-card" id="chlorine-card">
                 <h2>Chlorine</h2>
@@ -68,14 +76,6 @@
                     <div id="system-name">Loading...</div>
                     <div id="cl-mode">ClMode: -</div>
                     <div id="ph-mode">PhMode: -</div>
-                </div>
-            </div>
-            
-            <!-- Alarms Card -->
-            <div class="metric-card alarms" id="alarms-card">
-                <h2>Alarms</h2>
-                <div class="status-details" id="alarm-details">
-                    <div id="alarm-messages">No alarms</div>
                 </div>
             </div>
         </section>
