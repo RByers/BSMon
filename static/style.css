@@ -346,17 +346,83 @@ main {
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-    .metrics-grid {
-        grid-template-columns: 1fr;
+    /* Reduce overall spacing */
+    :root {
+        --spacing-unit: 8px;
     }
     
-    /* No need to override alarms as it will still be full width */
+    /* Adjust header */
+    header {
+        padding: 8px;
+    }
+    
+    header h1 {
+        font-size: 1.5rem;
+    }
+    
+    /* Adjust main content */
+    main {
+        padding: 8px;
+    }
+    
+    /* Adjust grid layout */
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    
+    /* Reduce card padding */
+    .metric-card {
+        padding: 8px;
+    }
+    
+    /* Reduce heading size and padding */
+    .metric-card h2 {
+        font-size: 1.1rem;
+        padding-bottom: 4px;
+        margin-bottom: 4px;
+    }
+    
+    /* Reduce metric value size */
+    .metric-value {
+        font-size: 1.6rem;
+        margin: 8px 0;
+    }
+    
+    /* Reduce details spacing */
+    .metric-details {
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    /* Reduce status details spacing */
+    .status-details {
+        gap: 4px;
+    }
+    
+    /* Reduce settings panel spacing */
+    .settings-panel {
+        padding: 8px;
+        margin-top: 8px;
+    }
+    
+    .settings-panel h2 {
+        font-size: 1.1rem;
+        padding-bottom: 4px;
+    }
+    
+    .threshold-controls {
+        gap: 8px;
+        margin-top: 8px;
+    }
     
     .control-group {
         justify-content: flex-start;
-        gap: 16px;
+        gap: 8px;
     }
     
+    /* Adjust modal */
     .modal-content {
         width: 95%;
         max-height: 95%;
