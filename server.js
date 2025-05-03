@@ -195,14 +195,25 @@ function close(client) {
 
 async function getAlarmData() {
     if (settings.use_fake_controller) {
-        // Return empty alarm data for fake controller
         return {
-            alarms: "No alarms",
-            messages: []
+                "alarms": 1,
+                "messages": [
+                  {
+                    "id": 8,
+                    "rdate": "2025-05-01T19:19",
+                    "prio": 3,
+                    "groupID": 1,
+                    "bgcolor": "#FF0000",
+                    "ftcolor": "#FFFFFF",
+                    "ack": false,
+                    "sourceID": 0,
+                    "sourceTxt": "Alarm",
+                    "msgTxt": "Chlorine High"
+                  }
+                ]                
         };
     }
     
-    // Real controller
     let res = await fetch('http://' + settings.bshost + '/ajax_dataAlarms.json')
     let dataAlarms = await res.json();
     return dataAlarms;
@@ -296,13 +307,7 @@ app.get('/api/status', async (req, res) => {
                 }
             };
             
-            // Get alarm messages
-            const alarmData = await getAlarmData();
-            statusData.alarmMessages = {
-                summary: alarmData.alarms,
-                details: alarmData.messages
-            };
-            
+            statusData.alarmMessages = await getAlarmData();            
             res.json(statusData);
         } finally {
             await close(client);

@@ -126,14 +126,14 @@ function updateUI(data) {
     // Update Chlorine card
     if (data.chlorine) {
         $('cl-value').textContent = `${data.chlorine.value.toFixed(2)} ${data.chlorine.unit}`;
-        $('cl-setpoint').textContent = data.chlorine.setpoint.toFixed(1);
+        $('cl-setpoint').textContent = `${data.chlorine.setpoint.toFixed(1)} ${data.chlorine.unit}`;
         $('cl-output').textContent = `${data.chlorine.output.toFixed(1)}%`;
     }
     
     // Update pH card
     if (data.ph) {
         $('ph-value').textContent = `${data.ph.value.toFixed(2)} ${data.ph.unit}`;
-        $('ph-setpoint').textContent = data.ph.setpoint.toFixed(1);
+        $('ph-setpoint').textContent = `${data.ph.setpoint.toFixed(1)} ${data.ph.unit}`;
         $('ph-output').textContent = `${data.ph.output.toFixed(1)}%`;
     }
     
@@ -156,11 +156,32 @@ function updateUI(data) {
     
     // Update Alarms
     if (data.alarmMessages) {
-        let alarmHtml = data.alarmMessages.summary;
-        
-        if (data.alarmMessages.details && data.alarmMessages.details.length > 0) {
-            data.alarmMessages.details.forEach(alarm => {
-                alarmHtml += `<div>${alarm.sourceTxt}: ${alarm.msgTxt} [${alarm.rdate}]</div>`;
+        let alarmHtml = '';        
+        if (data.alarmMessages.messages && data.alarmMessages.messages.length > 0) {
+            // Create formatters for date and time
+            const dateFormatter = new Intl.DateTimeFormat('en-US', {
+                month: '2-digit',
+                day: '2-digit'
+            });
+            
+            const timeFormatter = new Intl.DateTimeFormat('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+            
+            data.alarmMessages.messages.forEach(alarm => {
+                // Parse the ISO date string
+                const date = new Date(alarm.rdate);
+                
+                // Format the date and time
+                const formattedDate = dateFormatter.format(date);
+                const formattedTime = timeFormatter.format(date);
+                
+                // Combine them in the desired format
+                const formattedDateTime = `${formattedDate} ${formattedTime}`;
+                
+                alarmHtml += `<div>${alarm.sourceTxt}: ${alarm.msgTxt} [${formattedDateTime}]</div>`;
             });
         }
         

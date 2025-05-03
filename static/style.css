@@ -81,18 +81,21 @@ main {
 }
 
 .metric-details {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
 }
 
 .detail-item {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
+    align-items: center;
 }
 
 .detail-label {
     color: #666;
+    margin-right: 4px;
 }
 
 .detail-value {
@@ -338,13 +341,8 @@ main {
     }
     
     .control-group {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .input-with-unit {
-        margin-top: 8px;
-        margin-left: 50px; /* Align with toggle text */
+        justify-content: flex-start;
+        gap: 16px;
     }
     
     .modal-content {
