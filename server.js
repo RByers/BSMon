@@ -480,7 +480,8 @@ async function checkAlarms() {
         dataAlarms = await getAlarmData();
     } catch(err) {
         // TODO: Send one notification for connectivity failure?
-        console.log(`Error getting alarm data: ${err}`);
+        console.log(`Error getting alarm data: ${err.message}`);
+        console.log(err.stack);
         return;
     }
     for (const am of dataAlarms.messages) {
