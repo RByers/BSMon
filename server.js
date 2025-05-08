@@ -481,7 +481,7 @@ async function checkAlarms() {
     } catch(err) {
         // TODO: Send one notification for connectivity failure?
         console.log(`Error getting alarm data: ${err.message}`);
-        console.log(err.stack);
+        console.log(err);
         return;
     }
     for (const am of dataAlarms.messages) {
@@ -546,8 +546,6 @@ async function checkAlarms() {
 }
 
 function pollAlarms() {
-    checkAlarms().then(() => {
-        setTimeout(pollAlarms, settings.alarm_poll_seconds * 1000);
-    });
+    checkAlarms().catch(err => console.error("checkAlarms error:", err));
 }
-pollAlarms();
+setInterval(pollAlarms, settings.alarm_poll_seconds * 1000);
