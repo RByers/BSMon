@@ -53,7 +53,7 @@ const Registers = {
     'ClValue':  {reg: 100, format: RF.Float, round: 2},
     'ClUnit':   {reg: 102, format: RF.ASCII, len: 10},
     'ClSet':    {reg: 111, format: RF.Float, round: 1},
-    'ClYout':   {reg: 113, format: RF.Float, round: 1},
+    'ClYout':   {reg: 113, format: RF.Float, round: 2},
     'PhValue':  {reg: 115, format: RF.Float, round: 2},
     'PhUnit':   {reg: 117, format: RF.ASCII, len: 10},
     'PhSet':    {reg: 126, format: RF.Float, round: 1},
