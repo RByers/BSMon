@@ -407,9 +407,21 @@ if (settings.tls_private_key_file && settings.tls_cert_file) {
     server = http.createServer(app);
     mode = 'http';
 }
-server.listen(settings.port, () => {
-    console.log(`Server listening with ${mode} on port ${settings.port}`);
-});
+
+function startServer(port = settings.port) {
+    if (server) return server;
+    server = app.listen(port, () => {
+        console.log(`Server listening on port ${port}`);
+    });
+    return server;
+}
+
+function stopServer() {
+    if (server) {
+        server.close();
+        server = null;
+    }
+}
 
 // Keep a log file of register values for graphing.
 // Average samples across our polling period to keep the number of log entries
@@ -554,4 +566,13 @@ async function checkAlarms() {
 function pollAlarms() {
     checkAlarms().catch(err => console.error("checkAlarms error:", err));
 }
-setInterval(pollAlarms, settings.alarm_poll_seconds * 1000);
+
+// If started directly, start the server and polling.
+if (require.main === module) {
+    startServer();
+    setInterval(pollAlarms, settings.alarm_poll_seconds * 1000);
+}
+
+if (process.env.NODE_ENV === 'test') {
+    module.exports = { bitsVal, roundRegister, app, startServer, stopServer };
+}
