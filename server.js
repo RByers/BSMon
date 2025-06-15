@@ -423,71 +423,77 @@ function stopServer() {
     }
 }
 
-// Keep a log file of register values for graphing.
-// Average samples across our polling period to keep the number of log entries
-// managable. 
-const registersToLog = [
-    'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
-let regAccum = {};
-let accumSamples = 0;
-let lastLogEntry = new Date();
-async function updateLog(client) {
-    // First read all the register values we're interested in
-    // If any are going to fail, we don't want to update any of the accumulated values.
-    let regValues = {};
-    for (r of registersToLog) {
-        let val = await readRegister(client, Registers[r]);
-        if (typeof val != 'number' || isNaN(val)) {
-            console.error(`Invalid value for ${r}: ${val} (type: ${typeof val})`);
-            throw new Error(`Invalid value for ${r}: ${val}`);
-        }
-        regValues[r] = val;
+class Logger {
+    constructor({ fs = require('fs'), settings = require('./settings.json'), nowFn = () => new Date() } = {}) {
+        this.fs = fs;
+        this.settings = settings;
+        this.nowFn = nowFn;
+        this.regAccum = {};
+        this.accumSamples = 0;
+        this.lastLogEntry = this.nowFn();
+        this.registersToLog = [
+            'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'
+        ];
     }
-    // Update accumulated values for computing a mean
-    for (r of registersToLog) {
-        if (!(r in regAccum))
-            regAccum[r] = 0;
-        regAccum[r] += regValues[r];
-    }
-    accumSamples++;
 
-    // If it's been log_entry_minutes since the last log entry, write a new one
-    const now = new Date();
-    if (now - lastLogEntry >= settings.log_entry_minutes * 60 * 1000) {
-        if (accumSamples === 0) {
-            // All samples failed, so we can't write a log entry.
-            lastLogEntry = now;
-            return;
+    async updateLog(client) {
+        // First read all the register values we're interested in
+        // If any are going to fail, we don't want to update any of the accumulated values.
+        let regValues = {};
+        for (let r of this.registersToLog) {
+            let val = await readRegister(client, Registers[r]);
+            if (typeof val != 'number' || isNaN(val)) {
+                console.error(`Invalid value for ${r}: ${val} (type: ${typeof val})`);
+                throw new Error(`Invalid value for ${r}: ${val}`);
+            }
+            regValues[r] = val;
         }
-        // Compute a logfile name for the month and year
-        const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
+        // Update accumulated values for computing a mean
+        for (let r of this.registersToLog) {
+            if (!(r in this.regAccum))
+                this.regAccum[r] = 0;
+            this.regAccum[r] += regValues[r];
+        }
+        this.accumSamples++;
 
-        // If the log file doesn't exist yet, created it with an appropriate header
-        let out = '';
-        if (!fs.existsSync(logFileName)) {
-            out = 'Time';
-            for (r of registersToLog) {
-                out += ',' + r;
+        // If it's been log_entry_minutes since the last log entry, write a new one
+        const now = this.nowFn();
+        if (now - this.lastLogEntry >= this.settings.log_entry_minutes * 60 * 1000) {
+            if (this.accumSamples === 0) {
+                // All samples failed, so we can't write a log entry.
+                this.lastLogEntry = now;
+                return;
+            }
+            // Compute a logfile name for the month and year
+            const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
+
+            // If the log file doesn't exist yet, create it with an appropriate header
+            let out = '';
+            if (!this.fs.existsSync(logFileName)) {
+                out = 'Time';
+                for (let r of this.registersToLog) {
+                    out += ',' + r;
+                }
+                out += '\n';
+            }
+
+            // Write the new mean data to the log file
+            // Use a date format easily parsed by Google Sheets
+            const zeroPad = (num) => String(num).padStart(2, '0')
+            out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` + 
+                `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
+            for (let r of this.registersToLog) {
+                out += ',' + (this.regAccum[r] / this.accumSamples).toFixed(Registers[r].round || 0);
+                this.regAccum[r] = 0;
             }
             out += '\n';
-        }
+            this.fs.appendFileSync(logFileName, out);
 
-        // Write the new mean data to the log file
-        // Use a date format easily parsed by Google Sheets
-        const zeroPad = (num) => String(num).padStart(2, '0')
-        out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` + 
-            `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
-        for (r of registersToLog) {
-            out += ',' + (regAccum[r] / accumSamples).toFixed(Registers[r].round || 0);
-            regAccum[r] = 0;
+            // Reset state for next log entry
+            this.lastLogEntry = now;
+            this.accumSamples = 0;
+            this.regAccum = {};
         }
-        out += '\n';
-        fs.appendFileSync(logFileName, out);
-
-        // Reset state for next log entry
-        lastLogEntry = now;
-        accumSamples = 0;
-        regAccum = {};
     }
 }
 
@@ -574,5 +580,5 @@ if (require.main === module) {
 }
 
 if (process.env.NODE_ENV === 'test') {
-    module.exports = { bitsVal, roundRegister, app, startServer, stopServer };
+    module.exports = { bitsVal, roundRegister, app, startServer, stopServer, Logger, Registers };
 }
