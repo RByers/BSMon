@@ -287,7 +287,7 @@ app.get('/api/status', async (req, res) => {
                 },
                 chlorine: {
                     value: await readRegister(client, Registers.ClValue),
-                    unit: "ppm", // Changed from mg/l to ppm as requested
+                    unit: await readRegister(client, Registers.ClUnit),
                     setpoint: await readRegister(client, Registers.ClSet),
                     output: await readRegister(client, Registers.ClYout)
                 },
