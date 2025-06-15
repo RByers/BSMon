@@ -425,8 +425,9 @@ async function updateLog(client) {
     let regValues = {};
     for (r of registersToLog) {
         let val = await readRegister(client, Registers[r]);
-        if (typeof val != 'number') {
-            throw new Error(`Invalid value for ${r}: ${typeof val}`);
+        if (typeof val != 'number' || isNaN(val)) {
+            console.error(`Invalid value for ${r}: ${val} (type: ${typeof val})`);
+            throw new Error(`Invalid value for ${r}: ${val}`);
         }
         regValues[r] = val;
     }
@@ -441,6 +442,11 @@ async function updateLog(client) {
     // If it's been log_entry_minutes since the last log entry, write a new one
     const now = new Date();
     if (now - lastLogEntry >= settings.log_entry_minutes * 60 * 1000) {
+        if (accumSamples === 0) {
+            // All samples failed, so we can't write a log entry.
+            lastLogEntry = now;
+            return;
+        }
         // Compute a logfile name for the month and year
         const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
 
