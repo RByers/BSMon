@@ -409,7 +409,6 @@ if (settings.tls_private_key_file && settings.tls_cert_file) {
 }
 
 function startServer(port = settings.port) {
-    if (server) return server;
     server = app.listen(port, () => {
         console.log(`Server listening on port ${port}`);
     });
@@ -497,6 +496,8 @@ class Logger {
     }
 }
 
+const logger = new Logger({ fs, settings });
+
 let lastAlarmDate = null;
 async function checkAlarms() {
     let dataAlarms = null;
@@ -560,7 +561,7 @@ async function checkAlarms() {
            writeSubscriptions();
         }
 
-        await updateLog(client);
+        await logger.updateLog(client);
     } catch(err) {
         console.log(`Error polling registers: ${err}`);
         return;
