@@ -423,23 +423,33 @@ function stopServer() {
 }
 
 class Logger {
+    #fs;
+    #settings;
+    #nowFn;
+    #regAccum = {};
+    #accumSamples = 0;
+    #lastLogEntry;
+    #registersToLog = [
+        'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'
+    ];
+    #timeoutCount = 0;
+
     constructor({ fs = require('fs'), settings = require('./settings.json'), nowFn = () => new Date() } = {}) {
-        this.fs = fs;
-        this.settings = settings;
-        this.nowFn = nowFn;
-        this.regAccum = {};
-        this.accumSamples = 0;
-        this.lastLogEntry = this.nowFn();
-        this.registersToLog = [
-            'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'
-        ];
+        this.#fs = fs;
+        this.#settings = settings;
+        this.#nowFn = nowFn;
+        this.#lastLogEntry = this.#nowFn();
+    }
+
+    incrementTimeoutCount() {
+        this.#timeoutCount++;
     }
 
     async updateLog(client) {
         // First read all the register values we're interested in
         // If any are going to fail, we don't want to update any of the accumulated values.
         let regValues = {};
-        for (let r of this.registersToLog) {
+        for (let r of this.#registersToLog) {
             let val = await readRegister(client, Registers[r]);
             if (typeof val != 'number' || isNaN(val)) {
                 console.error(`Invalid value for ${r}: ${val} (type: ${typeof val})`);
@@ -448,19 +458,19 @@ class Logger {
             regValues[r] = val;
         }
         // Update accumulated values for computing a mean
-        for (let r of this.registersToLog) {
-            if (!(r in this.regAccum))
-                this.regAccum[r] = 0;
-            this.regAccum[r] += regValues[r];
+        for (let r of this.#registersToLog) {
+            if (!(r in this.#regAccum))
+                this.#regAccum[r] = 0;
+            this.#regAccum[r] += regValues[r];
         }
-        this.accumSamples++;
+        this.#accumSamples++;
 
         // If it's been log_entry_minutes since the last log entry, write a new one
-        const now = this.nowFn();
-        if (now - this.lastLogEntry >= this.settings.log_entry_minutes * 60 * 1000) {
-            if (this.accumSamples === 0) {
+        const now = this.#nowFn();
+        if (now - this.#lastLogEntry >= this.#settings.log_entry_minutes * 60 * 1000) {
+            if (this.#accumSamples === 0) {
                 // All samples failed, so we can't write a log entry.
-                this.lastLogEntry = now;
+                this.#lastLogEntry = now;
                 return;
             }
             // Compute a logfile name for the month and year
@@ -468,12 +478,12 @@ class Logger {
 
             // If the log file doesn't exist yet, create it with an appropriate header
             let out = '';
-            if (!this.fs.existsSync(logFileName)) {
+            if (!this.#fs.existsSync(logFileName)) {
                 out = 'Time';
-                for (let r of this.registersToLog) {
+                for (let r of this.#registersToLog) {
                     out += ',' + r;
                 }
-                out += '\n';
+                out += ',SuccessCount,TimeoutCount\n';
             }
 
             // Write the new mean data to the log file
@@ -481,17 +491,18 @@ class Logger {
             const zeroPad = (num) => String(num).padStart(2, '0')
             out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` + 
                 `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
-            for (let r of this.registersToLog) {
-                out += ',' + (this.regAccum[r] / this.accumSamples).toFixed(Registers[r].round || 0);
-                this.regAccum[r] = 0;
+            for (let r of this.#registersToLog) {
+                out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
+                this.#regAccum[r] = 0;
             }
-            out += '\n';
-            this.fs.appendFileSync(logFileName, out);
+            out += `,${this.#accumSamples},${this.#timeoutCount}\n`;
+            this.#fs.appendFileSync(logFileName, out);
 
             // Reset state for next log entry
-            this.lastLogEntry = now;
-            this.accumSamples = 0;
-            this.regAccum = {};
+            this.#lastLogEntry = now;
+            this.#accumSamples = 0;
+            this.#regAccum = {};
+            this.#timeoutCount = 0;
         }
     }
 }
@@ -499,15 +510,20 @@ class Logger {
 const logger = new Logger({ fs, settings });
 
 let lastAlarmDate = null;
+
 async function checkAlarms() {
     let dataAlarms = null;
     try {
         dataAlarms = await getAlarmData();
     } catch(err) {
-        // TODO: Send one notification for connectivity failure?
-        console.log(`Error getting alarm data: ${err.message}`);
-        console.log(err);
-        return;
+        if (err.cause && err.cause.code === 'UND_ERR_CONNECT_TIMEOUT') {
+            logger.incrementTimeoutCount();
+            return;
+        } else {
+            console.log(`Unexpected error getting alarm data: ${err.message}`);
+            console.log(err);
+            return;
+        }
     }
     for (const am of dataAlarms.messages) {
         const rdate = new Date(am.rdate);

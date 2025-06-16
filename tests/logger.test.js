@@ -75,10 +75,12 @@ describe('Logger', () => {
     const lines = logCall.split('\n');
     const dataRow = lines[1];
     const parts = dataRow.split(',');
-    expect(parts.length).toBe(9); // Time + 8 values
-    for (let i = 1; i < parts.length; ++i) {
+    expect(parts.length).toBe(11); // Time + 8 values + SuccessCount + TimeoutCount
+    for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
     }
+    expect(parseFloat(parts[9])).toBe(2); // SuccessCount
+    expect(parseFloat(parts[10])).toBe(0); // TimeoutCount
   });
 
   it('appends a second line to an existing log file with a long sample and two normal samples', async () => {
@@ -105,19 +107,21 @@ describe('Logger', () => {
     // Should have written two log entries (one for each time window)
     expect(writtenContent.length).toBe(2);
     // First line: average of 10 and 2 = 6
-    const lines1 = writtenContent[0].split('\n');
-    const dataRow1 = lines1[1];
-    const parts1 = dataRow1.split(',');
-    for (let i = 1; i < parts1.length; ++i) {
+    const row1 = writtenContent[0];
+    const parts1 = row1.split(',');
+    for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts1[i])).toBeCloseTo(6, 2);
     }
-    // Second line: just 4s
-    const lines2 = writtenContent[1].split('\n');
-    const dataRow2 = lines2[0]; // no header
-    const parts2 = dataRow2.split(',');
-    for (let i = 1; i < parts2.length; ++i) {
+    expect(parseFloat(parts1[9])).toBe(2); // SuccessCount
+    expect(parseFloat(parts1[10])).toBe(0); // TimeoutCount
+    // Second line: just 4
+    const row2 = writtenContent[1];
+    const parts2 = row2.split(',');
+    for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts2[i])).toBeCloseTo(4, 2);
     }
+    expect(parseFloat(parts2[9])).toBe(1); // SuccessCount
+    expect(parseFloat(parts2[10])).toBe(0); // TimeoutCount
   });
 
   it('throws if a single register read fails', async () => {
@@ -153,10 +157,12 @@ describe('Logger', () => {
     const lines = logCall.split('\n');
     const dataRow = lines[1];
     const parts = dataRow.split(',');
-    expect(parts.length).toBe(9); // Time + 8 values
-    for (let i = 1; i < parts.length; ++i) {
+    expect(parts.length).toBe(11); // Time + 8 values + SuccessCount + TimeoutCount
+    for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
     }
+    expect(parseFloat(parts[9])).toBe(2); // SuccessCount
+    expect(parseFloat(parts[10])).toBe(0); // TimeoutCount
   });
 
   it('should not write a log row if all register reads fail (NaN bug test)', async () => {
