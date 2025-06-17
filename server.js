@@ -395,22 +395,22 @@ app.get('/testNotify', (req, res) => {
 });
 
 let server = null;
-let mode = null;
-if (settings.tls_private_key_file && settings.tls_cert_file) {
-    server = https.createServer({
-        key: fs.readFileSync(settings.tls_private_key_file),
-        cert: fs.readFileSync(settings.tls_cert_file),
-    },
-    app)
-    mode = 'https';
-} else {
-    server = http.createServer(app);
-    mode = 'http';
-}
 
 function startServer(port = settings.port) {
-    server = app.listen(port, () => {
-        console.log(`Server listening on port ${port}`);
+    let mode = null;
+    if (settings.tls_private_key_file && settings.tls_cert_file) {
+        server = https.createServer({
+            key: fs.readFileSync(settings.tls_private_key_file),
+            cert: fs.readFileSync(settings.tls_cert_file),
+        },
+        app)
+        mode = 'https';
+    } else {
+        server = http.createServer(app);
+        mode = 'http';
+    }
+    server.listen(port, () => {
+        console.log(`Server listening for ${mode} on port ${port}`);
     });
     return server;
 }
@@ -507,7 +507,7 @@ class Logger {
     }
 }
 
-const logger = new Logger({ fs, settings });
+const logger = new Logger();
 
 let lastAlarmDate = null;
 
