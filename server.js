@@ -505,7 +505,7 @@ class Logger {
         await this.#getBSData(client);
 
         // If it's been log_entry_minutes since the last log entry, write a new one
-        const now = this.#nowFn();
+       const now = this.#nowFn();
         if (now - this.#lastLogEntry >= this.#settings.log_entry_minutes * 60 * 1000) {
             if (this.#accumSamples === 0) {
                 // All samples failed, so we can't write a log entry.

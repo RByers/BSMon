@@ -8,6 +8,7 @@ class PentairClient {
         this.ws = null;
         this.pingTimeout = null;
         this.pingInterval = 60000;
+        this.reconnectDelay = 1000; // 1 second
         this.heaterOn = false;
         this.heaterOnTime = null;
         this.totalHeaterOnTime = 0; // in seconds
@@ -23,8 +24,10 @@ class PentairClient {
 
         this.ws.on('open', () => {
             console.log('Connected to Pentair Intellicenter');
+            this.reconnectDelay = 1000; // Reset reconnect delay on successful connection
             this.heartbeat();
             this.getInitialState();
+            this.startPingTimer();
         });
 
         this.ws.on('message', (data) => {
@@ -35,12 +38,15 @@ class PentairClient {
 
         this.ws.on('close', () => {
             console.log('Disconnected from Pentair Intellicenter');
+            this.stopPingTimer();
             clearTimeout(this.pingTimeout);
-            // Optional: implement reconnection logic here
+            setTimeout(() => this.connect(), this.reconnectDelay);
+            this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000); // Exponential backoff up to 5 minutes
         });
 
         this.ws.on('error', (error) => {
             console.error('Pentair client error:', error);
+            this.ws.close();
         });
     }
 
@@ -108,6 +114,21 @@ class PentairClient {
         this.pingTimeout = setTimeout(() => {
             this.ws.terminate();
         }, this.pingInterval + 5000);
+    }
+
+    startPingTimer() {
+        this.pingTimer = setInterval(() => {
+            if (this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ command: "ping" }));
+            }
+        }, this.pingInterval);
+    }
+
+    stopPingTimer() {
+        if (this.pingTimer) {
+            clearInterval(this.pingTimer);
+            this.pingTimer = null;
+        }
     }
 
     subscribeToStatus() {
