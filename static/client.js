@@ -146,6 +146,16 @@ function updateUI(data) {
     if (data.temperature) {
         $('temp-value').textContent = `${data.temperature.value.toFixed(1)} ${data.temperature.unit}`;
     }
+
+    // Update Heater card
+    if (data.hasOwnProperty('dutyCycle')) {
+        $('heater-status').textContent = data.heaterOn ? 'On' : 'Off';
+        $('heater-duty-cycle').textContent = `${(data.dutyCycle * 100).toFixed(1)}%`;
+        $('heater-timeframe').textContent = data.dutyCycleTimeframe;
+        if (data.setpoint) {
+            $('heater-setpoint').textContent = `${data.setpoint}°F`;
+        }
+    }
     
     // Update Page Title with System Name
     if (data.system && data.system.name) {

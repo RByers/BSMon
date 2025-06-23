@@ -7,6 +7,7 @@ const express = require('express')
 const webpush = require('web-push');
 const ModbusRTU = require('modbus-serial');
 const FakeController = require('./fake-controller');
+const PentairClient = require('./pentair-client');
 
 const settings = require('./settings.json');
 
@@ -307,7 +308,16 @@ app.get('/api/status', async (req, res) => {
                 }
             };
             
-            statusData.alarmMessages = await getAlarmData();            
+            statusData.alarmMessages = await getAlarmData();
+
+            if (logger.getPentairClient()) {
+                const dutyCycles = logger.getPentairClient().getDutyCycles();
+                statusData.heaterOn = dutyCycles.heaterOn;
+                statusData.dutyCycle = dutyCycles.dutyCycle;
+                statusData.dutyCycleTimeframe = dutyCycles.dutyCycleTimeframe;
+                statusData.setpoint = dutyCycles.setpoint;
+            }
+            
             res.json(statusData);
         } finally {
             await close(client);
@@ -432,7 +442,12 @@ class Logger {
     #registersToLog = [
         'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'
     ];
+    #pentairFieldsToLog = [
+        'HeaterOnSeconds', 'setpoint', 'waterTemp'
+    ];
     #timeoutCount = 0;
+    #pentairClient = null;
+    #lastPentairHeaterOnTime = 0;
 
     constructor({ fs = require('fs'), settings = require('./settings.json'), nowFn = () => new Date() } = {}) {
         this.#fs = fs;
@@ -445,9 +460,15 @@ class Logger {
         this.#timeoutCount++;
     }
 
-    async updateLog(client) {
-        // First read all the register values we're interested in
-        // If any are going to fail, we don't want to update any of the accumulated values.
+    setPentairClient(client) {
+        this.#pentairClient = client;
+    }
+
+    getPentairClient() {
+        return this.#pentairClient;
+    }
+
+    async #getBSData(client) {
         let regValues = {};
         for (let r of this.#registersToLog) {
             let val = await readRegister(client, Registers[r]);
@@ -464,6 +485,24 @@ class Logger {
             this.#regAccum[r] += regValues[r];
         }
         this.#accumSamples++;
+    }
+
+    #getPentairData() {
+        let pentairValues = {};
+        if (this.#pentairClient) {
+            const dutyCycles = this.#pentairClient.getDutyCycles();
+            const currentTotal = this.#pentairClient.totalHeaterOnTime;
+            const diff = currentTotal - (this.#lastPentairHeaterOnTime || 0);
+            this.#lastPentairHeaterOnTime = currentTotal;
+            pentairValues['HeaterOnSeconds'] = diff;
+            pentairValues['setpoint'] = dutyCycles.setpoint;
+            pentairValues['waterTemp'] = dutyCycles.waterTemp;
+        }
+        return pentairValues;
+    }
+
+    async updateLog(client) {
+        await this.#getBSData(client);
 
         // If it's been log_entry_minutes since the last log entry, write a new one
         const now = this.#nowFn();
@@ -475,6 +514,7 @@ class Logger {
             }
             // Compute a logfile name for the month and year
             const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
+            const pentairData = this.#getPentairData();
 
             // If the log file doesn't exist yet, create it with an appropriate header
             let out = '';
@@ -483,17 +523,26 @@ class Logger {
                 for (let r of this.#registersToLog) {
                     out += ',' + r;
                 }
+                for (let r of this.#pentairFieldsToLog) {
+                    out += ',' + r;
+                }
                 out += ',SuccessCount,TimeoutCount\n';
             }
 
             // Write the new mean data to the log file
             // Use a date format easily parsed by Google Sheets
             const zeroPad = (num) => String(num).padStart(2, '0')
-            out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` + 
+            out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` +
                 `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
             for (let r of this.#registersToLog) {
                 out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
-                this.#regAccum[r] = 0;
+            }
+            for (let r of this.#pentairFieldsToLog) {
+                let val = pentairData[r] || 0;
+                if (typeof val === 'string') {
+                    val = parseFloat(val);
+                }
+                out += ',' + val.toFixed(0);
             }
             out += `,${this.#accumSamples},${this.#timeoutCount}\n`;
             this.#fs.appendFileSync(logFileName, out);
@@ -594,6 +643,12 @@ function pollAlarms() {
 if (require.main === module) {
     startServer();
     setInterval(pollAlarms, settings.alarm_poll_seconds * 1000);
+
+    if (settings.pentair_host) {
+        const pentairClient = new PentairClient(settings.pentair_host);
+        pentairClient.connect();
+        logger.setPentairClient(pentairClient);
+    }
 }
 
 if (process.env.NODE_ENV === 'test') {
