@@ -523,10 +523,11 @@ class Logger {
                 for (let r of this.#registersToLog) {
                     out += ',' + r;
                 }
+                out += ',SuccessCount,TimeoutCount';
                 for (let r of this.#pentairFieldsToLog) {
                     out += ',' + r;
                 }
-                out += ',SuccessCount,TimeoutCount\n';
+                out += '\n';
             }
 
             // Write the new mean data to the log file
@@ -537,6 +538,7 @@ class Logger {
             for (let r of this.#registersToLog) {
                 out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
             }
+            out += `,${this.#accumSamples},${this.#timeoutCount}`;
             for (let r of this.#pentairFieldsToLog) {
                 let val = pentairData[r] || 0;
                 if (typeof val === 'string') {
@@ -544,7 +546,7 @@ class Logger {
                 }
                 out += ',' + val.toFixed(0);
             }
-            out += `,${this.#accumSamples},${this.#timeoutCount}\n`;
+            out += '\n';
             this.#fs.appendFileSync(logFileName, out);
 
             // Reset state for next log entry
