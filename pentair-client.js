@@ -26,7 +26,7 @@ class PentairClient {
             console.log('Connected to Pentair Intellicenter');
             this.reconnectDelay = 1000; // Reset reconnect delay on successful connection
             this.heartbeat();
-            this.getInitialState();
+            this.subscribeToStatus();
             this.startPingTimer();
         });
 
@@ -51,19 +51,26 @@ class PentairClient {
     }
 
     handleMessage(message) {
-        if (message.messageID === 'initial-state-heater' || message.messageID === 'subscribe-heater') {
-            this.heaterData = message.objectList;
-        } else if (message.messageID === 'initial-state-body' || message.messageID === 'subscribe-body') {
-            this.bodyData = message.objectList;
-        }
-
-        if (this.heaterData && this.bodyData) {
-            const heater = this.heaterData[0];
-            const body = this.bodyData[0];
-            const isHeating = heater.params.STATUS === 'ON' && body.params.HTMODE !== '0';
-            this.updateHeaterState(isHeating);
-            this.setpoint = body.params.LOTMP;
-            this.waterTemp = body.params.TEMP;
+        //console.log('Received message:', JSON.stringify(message, null, 2));
+        if (message.command === "NotifyList" && 
+            message.objectList && 
+            message.objectList.length > 0 &&
+            message.objectList[0].objnam === 'B1101')
+        {
+            const body = message.objectList[0];
+            if (body.params.HTMODE) {
+                if (body.params.HTMODE !== '0' && body.params.HTMODE !== '1') {
+                    console.error(`Unexpected HTMODE value: ${body.params.HTMODE}`);
+                }
+                const isHeating = body.params.HTMODE === '1';
+                this.updateHeaterState(isHeating);
+            }
+            if (body.params.LOTMP) {
+                this.setpoint = body.params.LOTMP;
+            }
+            if (body.params.TEMP) {
+                this.waterTemp = body.params.TEMP;
+            }
         }
     }
 
@@ -80,33 +87,6 @@ class PentairClient {
                 this.heaterOnTime = null;
             }
         }
-    }
-
-    getInitialState() {
-        const heaterMessage = {
-            command: 'GetParamList',
-            condition: 'OBJTYP = HEATER',
-            objectList: [{
-                objnam: 'ALL',
-                keys: ["OBJTYP: SUBTYP: SNAME: LISTORD: STATUS: PERMIT: TIMOUT: READY: HTMODE : SHOMNU : COOL : COMUART : BODY : HNAME : START : STOP : HEATING : BOOST : TIME : DLY : MODE"]
-            }],
-            messageID: 'initial-state-heater'
-        };
-        this.ws.send(JSON.stringify(heaterMessage));
-
-        const bodyMessage = {
-            command: 'GetParamList',
-            condition: 'OBJTYP = BODY',
-            objectList: [{
-                objnam: 'ALL',
-                keys: ["OBJTYP: SUBTYP: SNAME: LISTORD: FILTER: LOTMP: TEMP: HITMP: HTSRC: PRIM: SEC: ACT1: ACT2: ACT3: ACT4: CIRCUIT: SPEED: BOOST: SELECT: STATUS: HTMODE : LSTTMP : HEATER : VOL : MANUAL : HNAME : MODE"]
-            }],
-            messageID: 'initial-state-body'
-        };
-        this.ws.send(JSON.stringify(bodyMessage));
-
-        // After getting the initial state, subscribe to future updates.
-        this.subscribeToStatus();
     }
 
     heartbeat() {
@@ -132,21 +112,9 @@ class PentairClient {
     }
 
     subscribeToStatus() {
-        const heaterMessage = {
-            command: 'RequestParamList',
-            messageID: 'subscribe-heater',
-            objectList: [
-                {
-                    objnam: 'H0001',
-                    keys: ['STATUS']
-                }
-            ]
-        };
-        this.ws.send(JSON.stringify(heaterMessage));
-
         const bodyMessage = {
             command: 'RequestParamList',
-            messageID: 'subscribe-body',
+            messageID: uuidv4(),
             objectList: [
                 {
                     objnam: 'B1101',
@@ -188,7 +156,11 @@ class PentairClient {
             dutyCycleTimeframe = 'yesterday';
         } else {
             dutyCycle = (this.totalHeaterOnTime + currentOnTime) / appUptime;
-            dutyCycleTimeframe = `last ${Math.round(appUptime / 3600)} hours`;
+            if (appUptime < 120 * 60) {
+                dutyCycleTimeframe = `last ${Math.round(appUptime / 60)} minutes`;
+            } else {
+                dutyCycleTimeframe = `last ${Math.round(appUptime / 3600)} hours`;
+            }
         }
 
         return {
