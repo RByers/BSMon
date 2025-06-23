@@ -102,6 +102,15 @@ main {
     font-weight: 500;
 }
 
+/* Special styling for combined duty cycle display */
+.duty-cycle-combined {
+    grid-column: 1 / -1; /* Span full width */
+}
+
+.duty-cycle-combined .detail-value {
+    font-size: 1.1rem;
+}
+
 /* Alarms card */
 .alarms {
     grid-column: 1 / -1; /* Make alarms span full width */
