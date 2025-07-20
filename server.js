@@ -311,11 +311,9 @@ app.get('/api/status', async (req, res) => {
             statusData.alarmMessages = await getAlarmData();
 
             if (logger.getPentairClient()) {
-                const dutyCycles = logger.getPentairClient().getDutyCycles();
-                statusData.heaterOn = dutyCycles.heaterOn;
-                statusData.dutyCycle = dutyCycles.dutyCycle;
-                statusData.dutyCycleTimeframe = dutyCycles.dutyCycleTimeframe;
-                statusData.setpoint = dutyCycles.setpoint;
+                const pentairClient = logger.getPentairClient();
+                statusData.heaterOn = pentairClient.heaterOn;
+                statusData.setpoint = pentairClient.setpoint;
             }
             
             res.json(statusData);
@@ -490,13 +488,12 @@ class Logger {
     #getPentairData() {
         let pentairValues = {};
         if (this.#pentairClient) {
-            const dutyCycles = this.#pentairClient.getDutyCycles();
             const currentTotal = this.#pentairClient.totalHeaterOnTime;
             const diff = currentTotal - (this.#lastPentairHeaterOnTime || 0);
             this.#lastPentairHeaterOnTime = currentTotal;
             pentairValues['HeaterOnSeconds'] = diff;
-            pentairValues['setpoint'] = dutyCycles.setpoint;
-            pentairValues['waterTemp'] = dutyCycles.waterTemp;
+            pentairValues['setpoint'] = this.#pentairClient.setpoint;
+            pentairValues['waterTemp'] = this.#pentairClient.waterTemp;
         }
         return pentairValues;
     }

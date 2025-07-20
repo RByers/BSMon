@@ -148,13 +148,8 @@ function updateUI(data) {
     }
 
     // Update Heater card
-    if (data.hasOwnProperty('dutyCycle')) {
+    if (data.hasOwnProperty('heaterOn')) {
         $('heater-status').textContent = data.heaterOn ? 'On' : 'Off';
-        
-        // Combine duty cycle and timeframe into a single display
-        const dutyCyclePercent = (data.dutyCycle * 100).toFixed(1);
-        const timeframe = data.dutyCycleTimeframe;
-        $('heater-duty-combined').textContent = `${dutyCyclePercent}% ${timeframe}`;
         
         if (data.setpoint) {
             $('heater-setpoint').textContent = `${data.setpoint}°F`;

@@ -12,9 +12,6 @@ class PentairClient {
         this.heaterOn = false;
         this.heaterOnTime = null;
         this.totalHeaterOnTime = 0; // in seconds
-        this.yesterdayHeaterOnTime = 0; // in seconds
-        this.appStartTime = new Date();
-        this.lastRollover = new Date();
         this.setpoint = null;
         this.waterTemp = null;
     }
@@ -75,7 +72,6 @@ class PentairClient {
     }
 
     updateHeaterState(isHeating) {
-        this.checkForRollover();
         if (isHeating && !this.heaterOn) {
             this.heaterOn = true;
             this.heaterOnTime = new Date();
@@ -125,52 +121,6 @@ class PentairClient {
         this.ws.send(JSON.stringify(bodyMessage));
     }
 
-    checkForRollover() {
-        const now = new Date();
-        if (now.getDate() !== this.lastRollover.getDate()) {
-            if (this.heaterOn && this.heaterOnTime) {
-                const diff = (new Date(now).setHours(0,0,0,0) - this.heaterOnTime) / 1000;
-                this.totalHeaterOnTime += diff;
-                this.heaterOnTime = new Date(new Date(now).setHours(0,0,0,0));
-            }
-            this.yesterdayHeaterOnTime = this.totalHeaterOnTime;
-            this.lastRollover = now;
-        }
-    }
-
-    getDutyCycles() {
-        this.checkForRollover();
-        let currentOnTime = 0;
-        if (this.heaterOn && this.heaterOnTime) {
-            currentOnTime = (new Date() - this.heaterOnTime) / 1000;
-        }
-
-        const now = new Date();
-        const appUptime = (now - this.appStartTime) / 1000;
-
-        let dutyCycle;
-        let dutyCycleTimeframe;
-
-        if (appUptime >= 24 * 60 * 60) {
-            dutyCycle = this.yesterdayHeaterOnTime / (24 * 60 * 60);
-            dutyCycleTimeframe = 'yesterday';
-        } else {
-            dutyCycle = (this.totalHeaterOnTime + currentOnTime) / appUptime;
-            if (appUptime < 120 * 60) {
-                dutyCycleTimeframe = `last ${Math.round(appUptime / 60)} minutes`;
-            } else {
-                dutyCycleTimeframe = `last ${Math.round(appUptime / 3600)} hours`;
-            }
-        }
-
-        return {
-            heaterOn: this.heaterOn,
-            dutyCycle,
-            dutyCycleTimeframe,
-            setpoint: this.setpoint,
-            waterTemp: this.waterTemp
-        };
-    }
 }
 
 module.exports = PentairClient;

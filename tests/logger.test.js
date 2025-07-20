@@ -75,7 +75,7 @@ describe('Logger', () => {
     const lines = logCall.split('\n');
     const dataRow = lines[1];
     const parts = dataRow.split(',');
-    expect(parts.length).toBe(11); // Time + 8 values + SuccessCount + TimeoutCount
+    expect(parts.length).toBe(14); // Time + 8 values + SuccessCount + TimeoutCount + 3 Pentair fields
     for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
     }
@@ -157,7 +157,7 @@ describe('Logger', () => {
     const lines = logCall.split('\n');
     const dataRow = lines[1];
     const parts = dataRow.split(',');
-    expect(parts.length).toBe(11); // Time + 8 values + SuccessCount + TimeoutCount
+    expect(parts.length).toBe(14); // Time + 8 values + SuccessCount + TimeoutCount + 3 Pentair fields
     for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
     }
@@ -185,4 +185,4 @@ describe('Logger', () => {
     } catch (e) {}
     expect(mockFs.appendFileSync).not.toHaveBeenCalled();
   });
-}); 
+});
