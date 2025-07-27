@@ -218,13 +218,7 @@ describe('Logger', () => {
         });
       }
 
-      handleMessage(ws, message) {
-        if (message.command === 'RequestParamList') {
-          this.sendStatus(ws);
-        }
-      }
-
-      sendStatus(ws) {
+      makeStatusMessage() {
         const message = {
           command: "NotifyList",
           objectList: [{
@@ -236,24 +230,18 @@ describe('Logger', () => {
             }
           }]
         };
-        ws.send(JSON.stringify(message));
+        return JSON.stringify(message);
       }
 
-      sendStatusToClient(ws) {
+      handleMessage(ws, message) {
+        if (message.command === 'RequestParamList') {
+          ws.send(this.makeStatusMessage());
+        }
+      }
+
+      sendStatus(ws) {
         return new Promise((resolve, reject) => {
-          const message = {
-            command: "NotifyList",
-            objectList: [{
-              objnam: 'B1101',
-              params: {
-                HTMODE: this.heaterState,
-                LOTMP: this.setpoint,
-                TEMP: this.waterTemp
-              }
-            }]
-          };
-          
-          ws.send(JSON.stringify(message), (error) => {
+          ws.send(this.makeStatusMessage(), (error) => {
             if (error) {
               reject(error);
             } else {
@@ -288,7 +276,7 @@ describe('Logger', () => {
         
         for (const ws of this.connections) {
           if (ws.readyState === WebSocket.OPEN) {
-            sendPromises.push(this.sendStatusToClient(ws));
+            sendPromises.push(this.sendStatus(ws));
           }
         }
         
