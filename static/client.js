@@ -238,6 +238,21 @@ async function fetchRawStatus() {
     }
 }
 
+// Update heater duty cycle
+async function updateHeaterDutyCycle() {
+    try {
+        const dutyCycle = await getHeaterDutyCycle24Hours();
+        if (dutyCycle !== null) {
+            $('heater-duty-cycle').textContent = `${dutyCycle}%`;
+        } else {
+            $('heater-duty-cycle').textContent = '-';
+        }
+    } catch (error) {
+        console.error('Error updating heater duty cycle:', error);
+        $('heater-duty-cycle').textContent = '-';
+    }
+}
+
 // Handle raw data modal
 function setupRawDataModal() {
     const viewRawDataBtn = $('view-raw-data');
@@ -274,6 +289,9 @@ async function init() {
     // Fetch initial status
     await fetchStatus();
     
+    // Fetch initial heater duty cycle
+    await updateHeaterDutyCycle();
+    
     // Setup raw data modal
     setupRawDataModal();
 
@@ -305,6 +323,9 @@ async function init() {
     
     // Set up auto-refresh every 30 seconds
     setInterval(fetchStatus, 30000);
+    
+    // Set up heater duty cycle refresh every 15 minutes
+    setInterval(updateHeaterDutyCycle, 15 * 60 * 1000);
 }
 
 window.onload = () => { init(); }

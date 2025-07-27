@@ -60,12 +60,14 @@ Data logging system that:
 Progressive Web Application with:
 - **index.html** - Main dashboard interface with metric cards
 - **client.js** - JavaScript for API communication, notifications, UI updates
+- **logreader.js** - Client-side CSV parsing and heater duty cycle calculation
 - **style.css** - Responsive CSS styling
 - **sw.js** - Service worker for push notifications, no explicit offline support
 - **manifest.json** - PWA manifest for installability
 
 **Features:**
 - Real-time status updates (30-second refresh)
+- Heater duty cycle display (15-minute refresh for 24-hour historical data)
 - Push notification settings with threshold configuration
 - Raw data modal for detailed system information
 - Responsive design for mobile and desktop
