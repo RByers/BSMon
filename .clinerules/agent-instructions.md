@@ -6,3 +6,6 @@
 * Only break expressions into multiple lines with local variables when it adds significant clarity or keeps lines from exceeding 100 characters in length. 
 * Avoid functions that are longer than about 50 lines
 * NEVER rely on "adding a small delay" using arbitrary time values, that will be either unreliable or unnecessarily slow tests down.
+
+# Agent processing instructions
+* Regularly consult the TODO list (todo.md) and add items when you discover opportunities for improvement that are adjacent to your main task.
