@@ -8,4 +8,5 @@
 * NEVER rely on "adding a small delay" using arbitrary time values, that will be either unreliable or unnecessarily slow tests down.
 
 # Agent processing instructions
-* Regularly consult the TODO list (todo.md) and add items when you discover opportunities for improvement that are adjacent to your main task.
+* Regularly consult the TODO list (todo.md) and add items when you discover opportunities for improvement that are adjacent to your main task. Remove items from the list when complete.
+* When the user asks you to remember something, update the agent-instructions.md file. 

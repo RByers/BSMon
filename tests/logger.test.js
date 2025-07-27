@@ -10,6 +10,16 @@ const mockSettings = {
   log_entry_minutes: 10
 };
 
+// Constants and helpers for register value creation
+const LOGGER_REGISTERS = ['ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
+
+function createRegisterValues(value) {
+  return LOGGER_REGISTERS.reduce((obj, reg) => {
+    obj[reg] = value;
+    return obj;
+  }, {});
+}
+
 // Mock client with readHoldingRegisters method, using symbolic register names
 function makeMockBSClient(registerValueMap) {
   const mockClient = {
@@ -49,11 +59,9 @@ describe('Logger', () => {
   });
 
   it('mock client returns correct values for logger registers', async () => {
-    const all2 = { ClValue: 2, PhValue: 2, ORPValue: 2, TempValue: 2, ClSet: 2, PhSet: 2, ClYout: 2, PhYout: 2 };
-    const client = makeMockBSClient(all2);
+    const client = makeMockBSClient(createRegisterValues(2));
     // Only check registers used by the logger
-    const registersToLog = ['ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
-    for (const regName of registersToLog) {
+    for (const regName of LOGGER_REGISTERS) {
       const val = await client.readRegister(Registers[regName]);
       expect(val).toBe(2);
     }
@@ -65,12 +73,10 @@ describe('Logger', () => {
     mockFs.appendFileSync.mockImplementation((filename, content) => {
       writtenFilename = filename;
     });
-    const all2 = { ClValue: 2, PhValue: 2, ORPValue: 2, TempValue: 2, ClSet: 2, PhSet: 2, ClYout: 2, PhYout: 2 };
-    const mockClient = makeMockBSClient(all2);
+    const mockClient = makeMockBSClient(createRegisterValues(2));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
-    const all4 = { ClValue: 4, PhValue: 4, ORPValue: 4, TempValue: 4, ClSet: 4, PhSet: 4, ClYout: 4, PhYout: 4 };
-    mockClient.updateValues(all4);
+    mockClient.updateValues(createRegisterValues(4));
     await advanceTime(11 * 60, logger);
     expect(mockFs.appendFileSync).toHaveBeenCalled();
     expect(writtenFilename).toBe('static/log-2024-1.csv');
@@ -94,17 +100,14 @@ describe('Logger', () => {
       writtenContent.push(content);
     });
     // First sample: all 10s
-    const all10 = { ClValue: 10, PhValue: 10, ORPValue: 10, TempValue: 10, ClSet: 10, PhSet: 10, ClYout: 10, PhYout: 10 };
-    const mockClient = makeMockBSClient(all10);
+    const mockClient = makeMockBSClient(createRegisterValues(10));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
     // Second sample: all 2s
-    const all2 = { ClValue: 2, PhValue: 2, ORPValue: 2, TempValue: 2, ClSet: 2, PhSet: 2, ClYout: 2, PhYout: 2 };
-    mockClient.updateValues(all2);
+    mockClient.updateValues(createRegisterValues(2));
     await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
     // Third sample: all 4s
-    const all4 = { ClValue: 4, PhValue: 4, ORPValue: 4, TempValue: 4, ClSet: 4, PhSet: 4, ClYout: 4, PhYout: 4 };
-    mockClient.updateValues(all4);
+    mockClient.updateValues(createRegisterValues(4));
     await advanceTime(mockSettings.log_entry_minutes * 60, logger);
     // Should have written two log entries (one for each time window)
     expect(writtenContent.length).toBe(2);
@@ -129,8 +132,7 @@ describe('Logger', () => {
   it('throws if a single register read fails', async () => {
     mockFs.existsSync.mockReturnValue(false);
     mockFs.appendFileSync.mockClear();
-    const errorSample = { ClValue: 2, PhValue: 'FAIL', ORPValue: 2, TempValue: 2, ClSet: 2, PhSet: 2, ClYout: 2, PhYout: 2 };
-    const mockClient = makeMockBSClient(errorSample);
+    const mockClient = makeMockBSClient({ ...createRegisterValues(2), PhValue: 'FAIL' });
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     await expect(logger.updateLog()).rejects.toThrow();
     expect(mockFs.appendFileSync).not.toHaveBeenCalled();
@@ -140,17 +142,14 @@ describe('Logger', () => {
     mockFs.existsSync.mockReturnValue(false);
     mockFs.appendFileSync.mockClear();
     // Good sample
-    const all2 = { ClValue: 2, PhValue: 2, ORPValue: 2, TempValue: 2, ClSet: 2, PhSet: 2, ClYout: 2, PhYout: 2 };
-    const mockClient = makeMockBSClient(all2);
+    const mockClient = makeMockBSClient(createRegisterValues(2));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     await advanceTime(2 * 60, logger);
     // Error sample
-    const errorSample = { ClValue: 4, PhValue: 'FAIL', ORPValue: 4, TempValue: 4, ClSet: 4, PhSet: 4, ClYout: 4, PhYout: 4 };
-    mockClient.updateValues(errorSample);
+    mockClient.updateValues({ ...createRegisterValues(4), PhValue: 'FAIL' });
     await advanceTime(2 * 60, logger).catch(() => {});
     // Good sample
-    const all4 = { ClValue: 4, PhValue: 4, ORPValue: 4, TempValue: 4, ClSet: 4, PhSet: 4, ClYout: 4, PhYout: 4 };
-    mockClient.updateValues(all4);
+    mockClient.updateValues(createRegisterValues(4));
     await advanceTime(10 * 60, logger);
     expect(mockFs.appendFileSync).toHaveBeenCalled();
     const logCall = mockFs.appendFileSync.mock.calls[0][1];
@@ -169,8 +168,7 @@ describe('Logger', () => {
     mockFs.existsSync.mockReturnValue(false);
     mockFs.appendFileSync.mockClear();
     // All reads fail for both samples
-    const failAll = { ClValue: 'FAIL', PhValue: 'FAIL', ORPValue: 'FAIL', TempValue: 'FAIL', ClSet: 'FAIL', PhSet: 'FAIL', ClYout: 'FAIL', PhYout: 'FAIL' };
-    const mockClient = makeMockBSClient(failAll);
+    const mockClient = makeMockBSClient(createRegisterValues('FAIL'));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     try {
       await logger.updateLog();
@@ -307,7 +305,7 @@ describe('Logger', () => {
 
     beforeEach(async () => {
       mockServer = new MockPentairServer(MOCK_SERVER_PORT);
-      testClient = makeMockBSClient({ ClValue: 2, PhValue: 2, ORPValue: 2, TempValue: 2, ClSet: 2, PhSet: 2, ClYout: 2, PhYout: 2 });
+      testClient = makeMockBSClient(createRegisterValues(2));
       // Note: the global beforeEach is what resets mockFs and fakeNow
       pentairClient = new PentairClient('localhost', MOCK_SERVER_PORT, nowFn);
       await pentairClient.connect();
