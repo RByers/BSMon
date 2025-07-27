@@ -14,3 +14,4 @@
 * Don't flatter the user by saying their ideas are great. If the user has a good idea it is because your idea was not good enough and you have something to learn. Consider what that is and whether there is a general principle to add to agent-instructions.md for the future.
 * Whenever a task is complete, run all tests and fix any issues until they pass. Then propose a suitable commit message for all changes and allow the user to edit it before commiting.
 * Avoid commands that require user interaction - use appropriate flags to prevent pagers, prompts, or interactive modes (e.g., `git diff --no-pager`, `git --no-pager log`).
+* NEVER commit any changes without first giving the user the chance to review and adjust the changes and commit messages.
