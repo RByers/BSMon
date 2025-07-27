@@ -109,13 +109,12 @@ describe('Logger', () => {
     expect(mockFs.appendFileSync).toHaveBeenCalled();
     expect(logFile.filename()).toBe('static/log-2024-1.csv');
     expect(logFile.content.length).toBe(2); // Header + data row
-    const parts = logFile.content[1].split(','); // Data row
-    expect(parts.length).toBe(CSV_HEADERS.length);
+    const result = logFile.getLastDataRow();
     for (const registerName of LOGGER_REGISTERS) {
-      expect(logFile.getColumnValue(1, registerName)).toBeCloseTo(3, 2);
+      expect(result[registerName]).toBeCloseTo(3, 2);
     }
-    expect(logFile.getColumnValue(1, 'SuccessCount')).toBe(2);
-    expect(logFile.getColumnValue(1, 'TimeoutCount')).toBe(0);
+    expect(result.SuccessCount).toBe(2);
+    expect(result.TimeoutCount).toBe(0);
   });
 
   it('creates multiple log entries with a long sample and two normal samples', async () => {
@@ -126,23 +125,28 @@ describe('Logger', () => {
     // Second sample: all 2s
     mockClient.updateValues(createRegisterValues(2));
     await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
+    
+    // Check first log entry: average of 10 and 2 = 6
+    expect(logFile.content.length).toBe(2); // Header + 1 data row
+    let result = logFile.getLastDataRow();
+    for (const registerName of LOGGER_REGISTERS) {
+      expect(result[registerName]).toBeCloseTo(6, 2);
+    }
+    expect(result.SuccessCount).toBe(2);
+    expect(result.TimeoutCount).toBe(0);
+    
     // Third sample: all 4s
     mockClient.updateValues(createRegisterValues(4));
     await advanceTime(mockSettings.log_entry_minutes * 60, logger);
-    // Should have written header + two data rows
+    
+    // Check second log entry: just 4
     expect(logFile.content.length).toBe(3); // Header + 2 data rows
-    // First data row: average of 10 and 2 = 6
+    result = logFile.getLastDataRow();
     for (const registerName of LOGGER_REGISTERS) {
-      expect(logFile.getColumnValue(1, registerName)).toBeCloseTo(6, 2);
+      expect(result[registerName]).toBeCloseTo(4, 2);
     }
-    expect(logFile.getColumnValue(1, 'SuccessCount')).toBe(2);
-    expect(logFile.getColumnValue(1, 'TimeoutCount')).toBe(0);
-    // Second data row: just 4
-    for (const registerName of LOGGER_REGISTERS) {
-      expect(logFile.getColumnValue(2, registerName)).toBeCloseTo(4, 2);
-    }
-    expect(logFile.getColumnValue(2, 'SuccessCount')).toBe(1);
-    expect(logFile.getColumnValue(2, 'TimeoutCount')).toBe(0);
+    expect(result.SuccessCount).toBe(1);
+    expect(result.TimeoutCount).toBe(0);
   });
 
   it('throws if a single register read fails', async () => {
@@ -165,13 +169,12 @@ describe('Logger', () => {
     await advanceTime(10 * 60, logger);
     expect(mockFs.appendFileSync).toHaveBeenCalled();
     expect(logFile.content.length).toBe(2); // Header + data row
-    const parts = logFile.content[1].split(','); // Data row
-    expect(parts.length).toBe(CSV_HEADERS.length);
+    const result = logFile.getLastDataRow();
     for (const registerName of LOGGER_REGISTERS) {
-      expect(logFile.getColumnValue(1, registerName)).toBeCloseTo(3, 2);
+      expect(result[registerName]).toBeCloseTo(3, 2);
     }
-    expect(logFile.getColumnValue(1, 'SuccessCount')).toBe(2);
-    expect(logFile.getColumnValue(1, 'TimeoutCount')).toBe(0);
+    expect(result.SuccessCount).toBe(2);
+    expect(result.TimeoutCount).toBe(0);
   });
 
   it('should not write a log row if all register reads fail (NaN bug test)', async () => {
@@ -370,17 +373,17 @@ describe('Logger', () => {
 
     it('handles heater remaining on across log period boundary', async () => {
       mockFs.existsSync.mockReturnValue(true);
-      const logContents = [];
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        const lines = content.split('\n').filter(line => line.trim() !== '');
-        logContents.push(...lines);
-      });
 
       // Heater turns on at start
       await mockServer.turnHeaterOn();
 
       // First log period ends - heater still on
       await advanceTime(mockSettings.log_entry_minutes * 60, logger);
+
+      // Check first period: heater was on for full log period
+      expect(mockFs.appendFileSync).toHaveBeenCalledTimes(1);
+      let result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(mockSettings.log_entry_minutes * 60);
 
       // Second log period - heater turns off after 5 more minutes
       await advanceTime(5 * 60, logger);
@@ -389,16 +392,10 @@ describe('Logger', () => {
       // Trigger second log write
       await advanceTime(5 * 60, logger);
 
+      // Check second period: heater was on for 5 minutes
       expect(mockFs.appendFileSync).toHaveBeenCalledTimes(2);
-      expect(logContents.length).toBe(3); // Header + 2 data rows
-      
-      // First period: heater was on for full log period
-      const parts1 = logContents[1].split(',');
-      expect(parseFloat(parts1[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(mockSettings.log_entry_minutes * 60);
-      
-      // Second period: heater was on for 5 minutes
-      const parts2 = logContents[2].split(',');
-      expect(parseFloat(parts2[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(300);
+      result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(300);
     });
 
     it('defaults to zero when no PentairClient is set', async () => {
@@ -452,17 +449,17 @@ describe('Logger', () => {
 
     it('handles heater state reset between log periods', async () => {
       mockFs.existsSync.mockReturnValue(true);
-      const logContents = [];
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        const lines = content.split('\n').filter(line => line.trim() !== '');
-        logContents.push(...lines);
-      });
 
       // First log period: heater on for 5 minutes
       await mockServer.turnHeaterOn();
       await advanceTime(5 * 60, logger);
       await mockServer.turnHeaterOff();
       await advanceTime(5 * 60, logger);
+
+      // Check first period: 300 seconds
+      expect(mockFs.appendFileSync).toHaveBeenCalledTimes(1);
+      let result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(300);
 
       // Second log period: simulate system restart (client disconnects and reconnects)
       pentairClient.disconnect();
@@ -475,16 +472,10 @@ describe('Logger', () => {
       await mockServer.turnHeaterOff();
       await advanceTime(5 * 60, logger);
 
+      // Check second period: 180 seconds
       expect(mockFs.appendFileSync).toHaveBeenCalledTimes(2);
-      expect(logContents.length).toBe(3); // Header + 2 data rows
-      
-      // First period: 300 seconds
-      const parts1 = logContents[1].split(',');
-      expect(parseFloat(parts1[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(300);
-      
-      // Second period: 180 seconds
-      const parts2 = logContents[2].split(',');
-      expect(parseFloat(parts2[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(180);
+      result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(180);
     });
   });
 });
