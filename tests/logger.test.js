@@ -16,6 +16,24 @@ const mockSettings = {
 const CSV_HEADERS = ['Time', 'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout', 'SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'setpoint', 'waterTemp'];
 const LOGGER_REGISTERS = ['ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
 
+// Helper function to drain the event loop for reliable test timing
+function drainEventLoop() {
+  const EVENT_LOOP_TICKS = 5;
+  return new Promise(resolve => {
+    let ticks = 0;
+    
+    function tick() {
+      if (++ticks >= EVENT_LOOP_TICKS) {
+        resolve();
+      } else {
+        setImmediate(tick);
+      }
+    }
+    
+    setImmediate(tick);
+  });
+}
+
 function createRegisterValues(value) {
   return LOGGER_REGISTERS.reduce((obj, reg) => {
     obj[reg] = value;
@@ -113,20 +131,16 @@ class MockPentairServer {
   }
 
   sendStatus(ws) {
-    return new Promise((resolve, reject) => {
-      ws.send(this.makeStatusMessage(), (error) => {
+    return new Promise(async (resolve, reject) => {
+      ws.send(this.makeStatusMessage(), async (error) => {
         if (error) {
           reject(error);
         } else {
-          // Triple setImmediate is required for proper test timing.
-          // This ensures the WebSocket message is fully processed by the PentairClient
-          // before test assertions run. Single setImmediate or process.nextTick
-          // causes race conditions where tests check state before client processing completes.
-          setImmediate(() => {
-            setImmediate(() => {
-              setImmediate(resolve);
-            });
-          });
+          // Wait for WebSocket message to be fully processed by the PentairClient.
+          // Multiple event loop ticks ensure message reception, JSON parsing,
+          // and state updates complete before test assertions run.
+          await drainEventLoop();
+          resolve();
         }
       });
     });
