@@ -11,6 +11,7 @@ const mockSettings = {
 };
 
 // Constants and helpers for register value creation
+const CSV_HEADERS = ['Time', 'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout', 'SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'setpoint', 'waterTemp'];
 const LOGGER_REGISTERS = ['ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
 
 function createRegisterValues(value) {
@@ -30,9 +31,23 @@ function setupLogFile() {
     const lines = content.split('\n').filter(line => line.trim() !== '');
     writtenLines.push(...lines);
   });
+  
   return { 
     content: writtenLines, 
-    filename: () => writtenFilename
+    filename: () => writtenFilename,
+    getColumnValue: (rowIndex, columnName) => {
+      const parts = writtenLines[rowIndex].split(',');
+      return parseFloat(parts[CSV_HEADERS.indexOf(columnName)]);
+    },
+    getLastDataRow: () => {
+      const dataRowIndex = writtenLines.length - 1; // Last row
+      const parts = writtenLines[dataRowIndex].split(',');
+      const result = {};
+      CSV_HEADERS.forEach((header, index) => {
+        result[header] = parseFloat(parts[index]);
+      });
+      return result;
+    }
   };
 }
 
@@ -95,12 +110,12 @@ describe('Logger', () => {
     expect(logFile.filename()).toBe('static/log-2024-1.csv');
     expect(logFile.content.length).toBe(2); // Header + data row
     const parts = logFile.content[1].split(','); // Data row
-    expect(parts.length).toBe(14); // Time + 8 values + SuccessCount + TimeoutCount + 3 Pentair fields
-    for (let i = 1; i <= 8; ++i) {
-      expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
+    expect(parts.length).toBe(CSV_HEADERS.length);
+    for (const registerName of LOGGER_REGISTERS) {
+      expect(logFile.getColumnValue(1, registerName)).toBeCloseTo(3, 2);
     }
-    expect(parseFloat(parts[9])).toBe(2); // SuccessCount
-    expect(parseFloat(parts[10])).toBe(0); // TimeoutCount
+    expect(logFile.getColumnValue(1, 'SuccessCount')).toBe(2);
+    expect(logFile.getColumnValue(1, 'TimeoutCount')).toBe(0);
   });
 
   it('creates multiple log entries with a long sample and two normal samples', async () => {
@@ -117,19 +132,17 @@ describe('Logger', () => {
     // Should have written header + two data rows
     expect(logFile.content.length).toBe(3); // Header + 2 data rows
     // First data row: average of 10 and 2 = 6
-    const parts1 = logFile.content[1].split(',');
-    for (let i = 1; i <= 8; ++i) {
-      expect(parseFloat(parts1[i])).toBeCloseTo(6, 2);
+    for (const registerName of LOGGER_REGISTERS) {
+      expect(logFile.getColumnValue(1, registerName)).toBeCloseTo(6, 2);
     }
-    expect(parseFloat(parts1[9])).toBe(2); // SuccessCount
-    expect(parseFloat(parts1[10])).toBe(0); // TimeoutCount
+    expect(logFile.getColumnValue(1, 'SuccessCount')).toBe(2);
+    expect(logFile.getColumnValue(1, 'TimeoutCount')).toBe(0);
     // Second data row: just 4
-    const parts2 = logFile.content[2].split(',');
-    for (let i = 1; i <= 8; ++i) {
-      expect(parseFloat(parts2[i])).toBeCloseTo(4, 2);
+    for (const registerName of LOGGER_REGISTERS) {
+      expect(logFile.getColumnValue(2, registerName)).toBeCloseTo(4, 2);
     }
-    expect(parseFloat(parts2[9])).toBe(1); // SuccessCount
-    expect(parseFloat(parts2[10])).toBe(0); // TimeoutCount
+    expect(logFile.getColumnValue(2, 'SuccessCount')).toBe(1);
+    expect(logFile.getColumnValue(2, 'TimeoutCount')).toBe(0);
   });
 
   it('throws if a single register read fails', async () => {
@@ -153,12 +166,12 @@ describe('Logger', () => {
     expect(mockFs.appendFileSync).toHaveBeenCalled();
     expect(logFile.content.length).toBe(2); // Header + data row
     const parts = logFile.content[1].split(','); // Data row
-    expect(parts.length).toBe(14); // Time + 8 values + SuccessCount + TimeoutCount + 3 Pentair fields
-    for (let i = 1; i <= 8; ++i) {
-      expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
+    expect(parts.length).toBe(CSV_HEADERS.length);
+    for (const registerName of LOGGER_REGISTERS) {
+      expect(logFile.getColumnValue(1, registerName)).toBeCloseTo(3, 2);
     }
-    expect(parseFloat(parts[9])).toBe(2); // SuccessCount
-    expect(parseFloat(parts[10])).toBe(0); // TimeoutCount
+    expect(logFile.getColumnValue(1, 'SuccessCount')).toBe(2);
+    expect(logFile.getColumnValue(1, 'TimeoutCount')).toBe(0);
   });
 
   it('should not write a log row if all register reads fail (NaN bug test)', async () => {
@@ -290,9 +303,9 @@ describe('Logger', () => {
       const dataRow = lines[lines.length - 1]; // Get the last non-empty line (most recent data)
       const parts = dataRow.split(',');
       return {
-        heaterOnSeconds: parseFloat(parts[11]),
-        setpoint: parseFloat(parts[12]),
-        waterTemp: parseFloat(parts[13]),
+        heaterOnSeconds: parseFloat(parts[CSV_HEADERS.indexOf('HeaterOnSeconds')]),
+        setpoint: parseFloat(parts[CSV_HEADERS.indexOf('setpoint')]),
+        waterTemp: parseFloat(parts[CSV_HEADERS.indexOf('waterTemp')]),
         header: lines[0]
       };
     }
@@ -470,7 +483,7 @@ describe('Logger', () => {
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
       const result = parseLogOutput(writtenContent);
-      expect(result.header).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp');
+      expect(result.header).toBe(CSV_HEADERS.join(','));
     });
 
     it('handles WebSocket disconnection during heating', async () => {
