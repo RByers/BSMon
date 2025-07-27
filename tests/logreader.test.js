@@ -40,20 +40,51 @@ describe('LogReader', () => {
             expect(result).toEqual([]);
         });
 
-        it('skips malformed lines and logs warning', () => {
+        it('skips lines with too many columns and logs warning', () => {
             const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
             
             const csvData = 'Time,ClValue,HeaterOnSeconds,PentairSeconds\n' +
                            '1/1/2024 12:00:00,1.5,300,600\n' +
-                           'malformed-line\n' +
+                           '1/1/2024 12:05:00,1.4,250,600,extra,column\n' +
                            '1/1/2024 12:10:00,1.6,0,600';
 
             const result = parseCSV(csvData);
 
             expect(result).toHaveLength(2);
-            expect(consoleWarnSpy).toHaveBeenCalledWith('Malformed CSV line 2: malformed-line');
+            expect(consoleWarnSpy).toHaveBeenCalledWith('Malformed CSV line 2: 1/1/2024 12:05:00,1.4,250,600,extra,column, found 6 columns, but only headers for 4');
             
             consoleWarnSpy.mockRestore();
+        });
+
+        it('processes lines with fewer columns than headers', () => {
+            const csvData = 'Time,ClValue,HeaterOnSeconds,PentairSeconds,NewColumn\n' +
+                           '1/1/2024 12:00:00,1.5,300,600,newValue\n' +
+                           '1/1/2024 12:10:00,1.6,0,600\n' + // Missing NewColumn
+                           '1/1/2024 12:20:00,1.7,100';      // Missing PentairSeconds and NewColumn
+
+            const result = parseCSV(csvData);
+
+            expect(result).toHaveLength(3);
+            expect(result[0]).toEqual({
+                Time: '1/1/2024 12:00:00',
+                ClValue: 1.5,
+                HeaterOnSeconds: 300,
+                PentairSeconds: 600,
+                NewColumn: 0 // newValue converted to 0 since it's not numeric
+            });
+            expect(result[1]).toEqual({
+                Time: '1/1/2024 12:10:00',
+                ClValue: 1.6,
+                HeaterOnSeconds: 0,
+                PentairSeconds: 600
+                // NewColumn missing - not included in object
+            });
+            expect(result[2]).toEqual({
+                Time: '1/1/2024 12:20:00',
+                ClValue: 1.7,
+                HeaterOnSeconds: 100
+                // PentairSeconds and NewColumn missing - not included in object
+            });
         });
 
         it('skips empty lines', () => {

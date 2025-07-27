@@ -31,13 +31,14 @@ function parseCSV(csvText) {
         if (!line) continue; // Skip empty lines
         
         const values = line.split(',');
-        if (values.length !== headers.length) {
-            console.warn(`Malformed CSV line ${i}: ${line}`);
-            continue; // Skip malformed lines
+        // Support the case of new columns being added during the day (during development)
+        if (values.length > headers.length) {
+            console.warn(`Malformed CSV line ${i}: ${line}, found ${values.length} columns, but only headers for ${headers.length}`);
+            continue;
         }
         
         const entry = {};
-        for (let j = 0; j < headers.length; j++) {
+        for (let j = 0; j < values.length; j++) {
             const header = headers[j];
             const value = values[j];
             
