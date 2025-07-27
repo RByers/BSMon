@@ -11,10 +11,11 @@ class Logger {
         'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'
     ];
     #pentairFieldsToLog = [
-        'HeaterOnSeconds', 'setpoint', 'waterTemp'
+        'HeaterOnSeconds', 'setpoint', 'waterTemp', 'PentairSeconds'
     ];
     #timeoutCount = 0;
     #lastHeaterOnTime = 0;
+    #lastConnectionTime = 0;
     #bsClient;
     #pentairClient;
 
@@ -56,12 +57,18 @@ class Logger {
             const currentTotal = this.#pentairClient.getCurrentTotalHeaterOnTime();
             pentairValues['HeaterOnSeconds'] = currentTotal - this.#lastHeaterOnTime;
             this.#lastHeaterOnTime = currentTotal;
+            
+            const currentConnectionTotal = this.#pentairClient.getCurrentTotalConnectionTime();
+            pentairValues['PentairSeconds'] = currentConnectionTotal - this.#lastConnectionTime;
+            this.#lastConnectionTime = currentConnectionTotal;
+            
             pentairValues['setpoint'] = this.#pentairClient.setpoint || 0;
             pentairValues['waterTemp'] = this.#pentairClient.waterTemp || 0;
         } else {
             pentairValues['HeaterOnSeconds'] = 0;
             pentairValues['setpoint'] = 0;
             pentairValues['waterTemp'] = 0;
+            pentairValues['PentairSeconds'] = 0;
         }
         return pentairValues;
     }

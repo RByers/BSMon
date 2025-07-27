@@ -9,11 +9,12 @@ const mockFs = {
 };
 
 const mockSettings = {
-  log_entry_minutes: 10
+  log_entry_minutes: 10,
+  alarm_poll_seconds: 10
 };
 
 // Constants and helpers for register value creation
-const CSV_HEADERS = ['Time', 'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout', 'SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'setpoint', 'waterTemp'];
+const CSV_HEADERS = ['Time', 'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout', 'SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'setpoint', 'waterTemp', 'PentairSeconds'];
 const LOGGER_REGISTERS = ['ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
 
 // Helper function to drain the event loop for reliable test timing
@@ -52,23 +53,32 @@ function setupLogFile() {
     writtenLines.push(...lines);
   });
   
-  return { 
+  const logFileHelpers = {
     content: writtenLines, 
     filename: () => writtenFilename,
     getColumnValue: (rowIndex, columnName) => {
       const parts = writtenLines[rowIndex].split(',');
       return parseFloat(parts[CSV_HEADERS.indexOf(columnName)]);
     },
-    getLastDataRow: () => {
-      const dataRowIndex = writtenLines.length - 1; // Last row
-      const parts = writtenLines[dataRowIndex].split(',');
+    getDataRow: (rowIndex) => {
+      const parts = writtenLines[rowIndex].split(',');
       const result = {};
       CSV_HEADERS.forEach((header, index) => {
-        result[header] = parseFloat(parts[index]);
+        if (header === 'Time') {
+          result[header] = parts[index]; // Keep timestamp as string
+        } else {
+          result[header] = parseFloat(parts[index]);
+        }
       });
       return result;
-    }
+    },
+    getLastDataRow: () => {
+      return logFileHelpers.getDataRow(writtenLines.length - 1);
+    },
+    getRowCount: () => writtenLines.length
   };
+  
+  return logFileHelpers;
 }
 
 // Mock client with readHoldingRegisters method, using symbolic register names
@@ -182,10 +192,19 @@ describe('Logger', () => {
   let fakeNow;
   let logFile;
   const nowFn = () => fakeNow;
+  // Manage the fake clock, advancing it and triggering any log updates similarly to how polling
+  // works in the main app. Throws exceptions on error.
+  // Note: this will early-out when an error occurs, only advancing time up to the point of first error
   const advanceTime = async (seconds, logger) => {
-    fakeNow = new Date(fakeNow.getTime() + seconds * 1000);
-    if (logger) {
-      await logger.updateLog();
+    const pollInterval = mockSettings.alarm_poll_seconds;
+    const totalSteps = Math.ceil(seconds / pollInterval);
+    
+    for (let step = 0; step < totalSteps; step++) {
+      const stepSeconds = Math.min(pollInterval, seconds - (step * pollInterval));
+      fakeNow = new Date(fakeNow.getTime() + stepSeconds * 1000);
+      if (logger) {
+        await logger.updateLog();
+      }
     }
   };
 
@@ -218,7 +237,8 @@ describe('Logger', () => {
     for (const registerName of LOGGER_REGISTERS) {
       expect(result[registerName]).toBeCloseTo((2 + 4) / 2, 2);
     }
-    expect(result.SuccessCount).toBe(2);
+    // With 10-second polling: 10 minutes = 60 polls (log writes after exactly 10 minutes)
+    expect(result.SuccessCount).toBe(60);
     expect(result.TimeoutCount).toBe(0);
   });
 
@@ -237,7 +257,8 @@ describe('Logger', () => {
     for (const registerName of LOGGER_REGISTERS) {
       expect(result[registerName]).toBeCloseTo((10 + 2) / 2, 2);
     }
-    expect(result.SuccessCount).toBe(2);
+    // With 10-second polling: 10 min = 60 polls
+    expect(result.SuccessCount).toBe(60);
     expect(result.TimeoutCount).toBe(0);
     
     // Third sample: all 4s
@@ -250,7 +271,8 @@ describe('Logger', () => {
     for (const registerName of LOGGER_REGISTERS) {
       expect(result[registerName]).toBeCloseTo(4, 2);
     }
-    expect(result.SuccessCount).toBe(1);
+    // With 10-second polling: 10 min = 60 polls
+    expect(result.SuccessCount).toBe(60);
     expect(result.TimeoutCount).toBe(0);
   });
 
@@ -261,24 +283,34 @@ describe('Logger', () => {
     expect(mockFs.appendFileSync).not.toHaveBeenCalled();
   });
 
-  it('handles interleaving errors and success', async () => {
-    // Good sample
-    const mockClient = makeMockBSClient(createRegisterValues(2));
+  it('handles errors during sampling', async () => {
+    // Good samples for 8 minutes with value 3
+    const mockClient = makeMockBSClient(createRegisterValues(3));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
-    await advanceTime(2 * 60, logger);
-    // Error sample
-    mockClient.updateValues({ ...createRegisterValues(4), PhValue: 'FAIL' });
-    await advanceTime(2 * 60, logger).catch(() => {});
-    // Good sample
-    mockClient.updateValues(createRegisterValues(4));
-    await advanceTime(10 * 60, logger);
+    await advanceTime(8 * 60, logger);
+    
+    // Error occurs - this will cause advanceTime to early-out, stopping progression at this point
+    mockClient.updateValues({ ...createRegisterValues(5), PhValue: 'FAIL' });
+    try {
+      await advanceTime(5 * 60, logger); // Attempt to continue but will fail immediately
+    } catch (e) {
+      // Expected to fail - advanceTime early-outs on first error
+    }
+    
+    // Fix the client values and manually advance time to reach the 10-minute log boundary
+    mockClient.updateValues(createRegisterValues(3)); // Reset to working values
+    await advanceTime(2 * 60, logger); // Add 2 more minutes to reach 10 minutes total
+    
     expect(mockFs.appendFileSync).toHaveBeenCalled();
     expect(logFile.content.length).toBe(2); // Header + data row
     const result = logFile.getLastDataRow();
+    
+    // With 10-second polling: 8 min = 48 successful polls with value 3, then error, then 2 min = 12 more successful polls with value 3
+    // Average = 3 (since all successful samples had value 3)
     for (const registerName of LOGGER_REGISTERS) {
-      expect(result[registerName]).toBeCloseTo(3, 2);
+      expect(result[registerName]).toBe(3);
     }
-    expect(result.SuccessCount).toBe(2);
+    expect(result.SuccessCount).toBe(59); // 60 polls over 10 minutes minus one failure
     expect(result.TimeoutCount).toBe(0);
   });
 
@@ -294,6 +326,68 @@ describe('Logger', () => {
     } catch (e) {}
     await advanceTime(11 * 60, logger).catch(() => {});
     expect(mockFs.appendFileSync).not.toHaveBeenCalled();
+  });
+
+  describe('Pentair Connection Time Tests', () => {
+    const MOCK_SERVER_PORT = 6680; // Different port from heater tests
+    
+    let mockServer;
+    let testClient;
+    let pentairClient;
+    let logger;
+
+    beforeEach(async () => {
+      mockServer = new MockPentairServer(MOCK_SERVER_PORT);
+      testClient = makeMockBSClient(createRegisterValues(2));
+      pentairClient = new PentairClient('localhost', MOCK_SERVER_PORT, nowFn);
+      await pentairClient.connect();
+      logger = new Logger({ bsClient: testClient, pentairClient, fs: mockFs, settings: mockSettings, nowFn });
+    });
+
+    afterEach(async () => {
+      if (pentairClient) {
+        pentairClient.disconnect();
+      }
+      if (mockServer) {
+        for (const ws of mockServer.connections) {
+          if (ws.readyState === 1) { // OPEN
+            ws.close();
+          }
+        }
+        mockServer.connections.clear();
+        await mockServer.server.close();
+        mockServer = null;
+      }
+    });
+
+    it('records connection time across two log periods and validates timestamps', async () => {
+      // Client is already connected, advance time for first full log period
+      await advanceTime(mockSettings.log_entry_minutes * 60, logger);
+
+      // Verify first log entry was written
+      expect(mockFs.appendFileSync).toHaveBeenCalledTimes(1);
+      expect(logFile.getRowCount()).toBe(2); // Header + 1 data row
+
+      const firstEntry = logFile.getDataRow(1); // Row 1 is first data row (row 0 is header)
+      expect(firstEntry.PentairSeconds).toBe(mockSettings.log_entry_minutes * 60); // 10 minutes = 600 seconds
+      expect(firstEntry.Time).toBe('1/1/2024 12:10:00'); // Started at 12:00:00, advanced 10 minutes
+
+      // Advance time for second full log period  
+      await advanceTime(mockSettings.log_entry_minutes * 60, logger);
+
+      // Verify second log entry was written
+      expect(mockFs.appendFileSync).toHaveBeenCalledTimes(2);
+      expect(logFile.getRowCount()).toBe(3); // Header + 2 data rows
+
+      const secondEntry = logFile.getDataRow(2); // Row 2 is second data row
+      expect(secondEntry.PentairSeconds).toBe(mockSettings.log_entry_minutes * 60); // Another 10 minutes = 600 seconds
+      expect(secondEntry.Time).toBe('1/1/2024 12:20:00'); // Advanced another 10 minutes to 20 minutes total
+
+      // Validate that connection time equals the log period duration for both entries
+      const expectedConnectionTime = mockSettings.log_entry_minutes * 60;
+      expect(firstEntry.PentairSeconds).toBe(expectedConnectionTime);
+      expect(secondEntry.PentairSeconds).toBe(expectedConnectionTime);
+    });
   });
 
   describe('Heater On Seconds Tests', () => {

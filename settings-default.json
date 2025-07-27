@@ -5,8 +5,8 @@
     "vapid_public_key": "Use https://web-push-codelab.glitch.me/",
     "vapid_private_key": "",
     "vapid_contact": "mailto:@gmail.com",
-    "alarm_poll_seconds": 60,
-    "log_entry_minutes": 10,
+    "alarm_poll_seconds": 10,
+    "log_entry_minutes": 15,
     "tls_private_key_file": "",
     "tls_cert_file": "",
     "use_fake_controller": false

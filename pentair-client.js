@@ -14,6 +14,8 @@ class PentairClient {
         this.reconnectTimeout = null; // Track reconnection timeout
         this.heaterLastOn = null;
         this.totalHeaterOnTime = 0; // in seconds
+        this.connectionStartTime = null;
+        this.totalConnectionTime = 0; // in seconds
         this.setpoint = null;
         this.waterTemp = null;
     }
@@ -25,6 +27,7 @@ class PentairClient {
             const onOpen = () => {
                 this.#ws.removeListener('error', onError);
                 this.reconnectDelay = 1000;
+                this.#updateConnectionState(true);
                 this.heartbeat();
                 this.subscribeToStatus();
                 this.startPingTimer();
@@ -47,6 +50,7 @@ class PentairClient {
             });
 
             this.#ws.on('close', () => {
+                this.#updateConnectionState(false);
                 this.stopPingTimer();
                 if (!this.#ws) {
                     // Disconnected intentionally
@@ -110,6 +114,24 @@ class PentairClient {
         return total / 1000; // Convert to seconds
     }
 
+    #updateConnectionState(isConnected) {
+        const now = this.nowFn();
+        if (this.connectionStartTime) {
+            const diff = now - this.connectionStartTime;
+            this.totalConnectionTime += diff;
+        }
+
+        this.connectionStartTime = isConnected ? now : null;
+    }
+
+    getCurrentTotalConnectionTime() {
+        let total = this.totalConnectionTime;
+        if (this.connectionStartTime) {
+            total += this.nowFn() - this.connectionStartTime;
+        }
+        return total / 1000; // Convert to seconds
+    }
+
     heartbeat() {
         clearTimeout(this.pingTimeout);
         this.pingTimeout = setTimeout(() => {
@@ -164,6 +186,7 @@ class PentairClient {
         }
     
         this.#updateHeaterState(false);
+        this.#updateConnectionState(false);
     }
 
     isConnected() {
