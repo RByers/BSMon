@@ -11,6 +11,7 @@
 
 # BSMon invariants to preserve
 * NEVER alter the order of existing columns in CSV files - always add new columns at the end to maintain backward compatibility with existing log files.
+* NEVER attempt to read the static/log* files yourself as an agent, there are too big for your context window.
 
 # Agent processing instructions
 * Regularly consult the TODO list (todo.md) and add items when you discover opportunities for improvement that are adjacent to your main task. Remove items from the list when complete.
@@ -20,4 +21,3 @@
 * Whenever a task is complete, run all tests and fix any issues until they pass. Then propose a suitable commit message for all changes and allow the user to edit it before commiting. Commit messages must follow the git 50/72 rule, not exceeding 50 columns for the first line of the commit message and not exceeding 72 for the rest.
 * Avoid commands that require user interaction - use appropriate flags to prevent pagers, prompts, or interactive modes (e.g., `git --no-pager diff`, `git --no-pager log`).
 * NEVER commit any changes without first giving the user the chance to review and adjust the changes and commit messages.
-

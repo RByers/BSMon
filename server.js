@@ -189,6 +189,19 @@ app.get('/api/status', async (req, res) => {
     }
 });
 
+app.get('/api/logs/24h', (req, res) => {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="last24hours.csv"');
+    
+    try {
+        const logger = new Logger();
+        const csvData = logger.getLast24HoursCSV();
+        res.send(csvData);
+    } catch (error) {
+        res.status(500).send(`Error generating log data: ${error.message}`);
+    }
+});
+
 app.get('/vapid_public_key.txt', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(settings.vapid_public_key);

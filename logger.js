@@ -28,6 +28,70 @@ class Logger {
         this.#lastLogEntry = this.#nowFn();
     }
 
+    #generateCSVHeader() {
+        let out = 'Time';
+        for (let r of this.#registersToLog) {
+            out += ',' + r;
+        }
+        out += ',SuccessCount,TimeoutCount';
+        for (let r of this.#pentairFieldsToLog) {
+            out += ',' + r;
+        }
+        return out;
+    }
+
+    getLast24HoursCSV(nowFn = () => new Date()) {
+        const now = nowFn();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        // Determine which log files we might need
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        const previousMonth = twentyFourHoursAgo.getMonth() + 1;
+        const previousYear = twentyFourHoursAgo.getFullYear();
+        
+        const filesToCheck = [];
+        
+        // Add files in chronological order to preserve sort
+        if (previousYear !== currentYear || previousMonth !== currentMonth) {
+            filesToCheck.push(`static/log-${previousYear}-${previousMonth}.csv`);
+        }
+        filesToCheck.push(`static/log-${currentYear}-${currentMonth}.csv`);
+        
+        const header = this.#generateCSVHeader();
+        const lines = [header];
+        
+        for (const fileName of filesToCheck) {
+            if (this.#fs.existsSync(fileName)) {
+                try {
+                    const content = this.#fs.readFileSync(fileName, 'utf8');
+                    const fileLines = content.split('\n');
+                    
+                    for (let i = 1; i < fileLines.length; i++) { // Skip header (line 0)
+                        const line = fileLines[i].trim();
+                        if (!line) continue; // Skip empty lines
+                        
+                        // Parse timestamp from first column
+                        const firstComma = line.indexOf(',');
+                        if (firstComma === -1) continue; // Invalid line
+                        
+                        const timestampStr = line.substring(0, firstComma);
+                        const timestamp = new Date(timestampStr);
+                        
+                        // Check if timestamp is within last 24 hours
+                        if (timestamp >= twentyFourHoursAgo && timestamp <= now) {
+                            lines.push(line);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error reading log file ${fileName}:`, error);
+                }
+            }
+        }
+        
+        return lines.join('\n') + '\n';
+    }
+
     incrementTimeoutCount() {
         this.#timeoutCount++;
     }
@@ -91,15 +155,7 @@ class Logger {
             // If the log file doesn't exist yet, create it with an appropriate header
             let out = '';
             if (!this.#fs.existsSync(logFileName)) {
-                out = 'Time';
-                for (let r of this.#registersToLog) {
-                    out += ',' + r;
-                }
-                out += ',SuccessCount,TimeoutCount';
-                for (let r of this.#pentairFieldsToLog) {
-                    out += ',' + r;
-                }
-                out += '\n';
+                out = this.#generateCSVHeader() + '\n';
             }
 
             // Write the new mean data to the log file

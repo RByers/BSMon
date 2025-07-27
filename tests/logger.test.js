@@ -575,4 +575,140 @@ describe('Logger', () => {
       expect(result.HeaterOnSeconds).toBe(3 * 60);
     });
   });
+
+  describe('getLast24HoursCSV', () => {
+    let mockFs;
+    let logger;
+
+    beforeEach(() => {
+      mockFs = {
+        existsSync: jest.fn(),
+        readFileSync: jest.fn()
+      };
+      logger = new Logger({ fs: mockFs });
+    });
+
+    it('returns just header when no log files exist', () => {
+      mockFs.existsSync.mockReturnValue(false);
+      
+      const result = logger.getLast24HoursCSV(nowFn);
+      
+      expect(result).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n');
+    });
+
+    it('filters entries from last 24 hours correctly', () => {
+      const fakeNow = new Date(2024, 0, 2, 12, 0, 0); // Jan 2, 2024 12:00:00
+      const testNowFn = () => fakeNow;
+      
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n' +
+        '1/1/2024 10:00:00,1.0,7.2,650,75,1.0,7.2,50,25,60,0,300,80,76,600\n' + // 26 hours ago - should be excluded
+        '1/1/2024 14:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600\n' + // 22 hours ago - should be included
+        '1/2/2024 10:00:00,1.2,7.1,645,74,1.2,7.1,45,20,60,0,200,80,75,600\n' + // 2 hours ago - should be included
+        '1/2/2024 13:00:00,1.3,7.4,660,77,1.3,7.4,60,35,60,0,500,80,78,600\n'  // 1 hour in future - should be excluded
+      );
+      
+      const result = logger.getLast24HoursCSV(testNowFn);
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      
+      expect(lines).toHaveLength(3); // Header + 2 data lines
+      expect(lines[0]).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds');
+      expect(lines[1]).toBe('1/1/2024 14:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600');
+      expect(lines[2]).toBe('1/2/2024 10:00:00,1.2,7.1,645,74,1.2,7.1,45,20,60,0,200,80,75,600');
+    });
+
+    it('handles month boundary crossing', () => {
+      const fakeNow = new Date(2024, 1, 1, 6, 0, 0); // Feb 1, 2024 06:00:00
+      const testNowFn = () => fakeNow;
+      
+      // Mock file system to return true for both January and February files
+      mockFs.existsSync.mockImplementation((filename) => {
+        return filename === 'static/log-2024-2.csv' || filename === 'static/log-2024-1.csv';
+      });
+      
+      // Mock different content for each file
+      mockFs.readFileSync.mockImplementation((filename) => {
+        if (filename === 'static/log-2024-1.csv') {
+          return 'Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n' +
+                 '1/31/2024 10:00:00,1.0,7.2,650,75,1.0,7.2,50,25,60,0,300,80,76,600\n'; // 20 hours ago - should be included
+        } else if (filename === 'static/log-2024-2.csv') {
+          return 'Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n' +
+                 '2/1/2024 2:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600\n'; // 4 hours ago - should be included
+        }
+      });
+      
+      const result = logger.getLast24HoursCSV(testNowFn);
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      
+      expect(lines).toHaveLength(3); // Header + 2 data lines from both months
+      expect(mockFs.existsSync).toHaveBeenCalledWith('static/log-2024-2.csv');
+      expect(mockFs.existsSync).toHaveBeenCalledWith('static/log-2024-1.csv');
+    });
+
+    it('handles malformed lines gracefully', () => {
+      const fakeNow = new Date(2024, 0, 2, 12, 0, 0);
+      const testNowFn = () => fakeNow;
+      
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n' +
+        'invalid-line-without-comma\n' +
+        '1/2/2024 10:00:00,1.2,7.1,645,74,1.2,7.1,45,20,60,0,200,80,75,600\n' +
+        '\n' + // Empty line
+        'another-invalid-line\n'
+      );
+      
+      const result = logger.getLast24HoursCSV(testNowFn);
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      
+      expect(lines).toHaveLength(2); // Header + 1 valid data line
+      expect(lines[1]).toBe('1/2/2024 10:00:00,1.2,7.1,645,74,1.2,7.1,45,20,60,0,200,80,75,600');
+    });
+
+    it('handles file read errors gracefully', () => {
+      const fakeNow = new Date(2024, 0, 2, 12, 0, 0);
+      const testNowFn = () => fakeNow;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockImplementation(() => {
+        throw new Error('File read error');
+      });
+      
+      const result = logger.getLast24HoursCSV(testNowFn);
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      
+      expect(lines).toHaveLength(1); // Just header
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Error reading log file'), expect.any(Error));
+      
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('returns entries sorted chronologically when reading from multiple files', () => {
+      const fakeNow = new Date(2024, 1, 1, 12, 0, 0); // Feb 1, 2024 12:00:00
+      const testNowFn = () => fakeNow;
+      
+      mockFs.existsSync.mockImplementation((filename) => {
+        return filename === 'static/log-2024-2.csv' || filename === 'static/log-2024-1.csv';
+      });
+      
+      mockFs.readFileSync.mockImplementation((filename) => {
+        if (filename === 'static/log-2024-1.csv') {
+          return 'Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n' +
+                 '1/31/2024 18:00:00,1.0,7.2,650,75,1.0,7.2,50,25,60,0,300,80,76,600\n'; // 18 hours ago
+        } else if (filename === 'static/log-2024-2.csv') {
+          return 'Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n' +
+                 '2/1/2024 6:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600\n'; // 6 hours ago
+        }
+      });
+      
+      const result = logger.getLast24HoursCSV(testNowFn);
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      
+      expect(lines).toHaveLength(3); // Header + 2 data lines
+      expect(lines[1]).toBe('1/31/2024 18:00:00,1.0,7.2,650,75,1.0,7.2,50,25,60,0,300,80,76,600');
+      expect(lines[2]).toBe('2/1/2024 6:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600');
+    });
+  });
 });
