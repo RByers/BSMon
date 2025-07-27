@@ -20,6 +20,22 @@ function createRegisterValues(value) {
   }, {});
 }
 
+function setupLogFile() {
+  mockFs.existsSync.mockReturnValueOnce(false).mockReturnValue(true);
+  const writtenLines = [];
+  let writtenFilename = null;
+  mockFs.appendFileSync.mockImplementation((filename, content) => {
+    writtenFilename = filename;
+    expect(content.endsWith('\n')).toBe(true);
+    const lines = content.split('\n').filter(line => line.trim() !== '');
+    writtenLines.push(...lines);
+  });
+  return { 
+    content: writtenLines, 
+    filename: () => writtenFilename
+  };
+}
+
 // Mock client with readHoldingRegisters method, using symbolic register names
 function makeMockBSClient(registerValueMap) {
   const mockClient = {
@@ -44,6 +60,7 @@ function makeMockBSClient(registerValueMap) {
 
 describe('Logger', () => {
   let fakeNow;
+  let logFile;
   const nowFn = () => fakeNow;
   const advanceTime = async (seconds, logger) => {
     fakeNow = new Date(fakeNow.getTime() + seconds * 1000);
@@ -56,6 +73,7 @@ describe('Logger', () => {
     mockFs.existsSync.mockReset();
     mockFs.appendFileSync.mockReset();
     fakeNow = new Date(2024, 0, 1, 12, 0, 0);
+    logFile = setupLogFile();
   });
 
   it('mock client returns correct values for logger registers', async () => {
@@ -68,22 +86,15 @@ describe('Logger', () => {
   });
 
   it('writes a log row with correct average and filename for two good samples', async () => {
-    mockFs.existsSync.mockReturnValueOnce(false); // File does not exist
-    let writtenFilename = null;
-    mockFs.appendFileSync.mockImplementation((filename, content) => {
-      writtenFilename = filename;
-    });
     const mockClient = makeMockBSClient(createRegisterValues(2));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
     mockClient.updateValues(createRegisterValues(4));
     await advanceTime(11 * 60, logger);
     expect(mockFs.appendFileSync).toHaveBeenCalled();
-    expect(writtenFilename).toBe('static/log-2024-1.csv');
-    const logCall = mockFs.appendFileSync.mock.calls[0][1];
-    const lines = logCall.split('\n');
-    const dataRow = lines[1];
-    const parts = dataRow.split(',');
+    expect(logFile.filename()).toBe('static/log-2024-1.csv');
+    expect(logFile.content.length).toBe(2); // Header + data row
+    const parts = logFile.content[1].split(','); // Data row
     expect(parts.length).toBe(14); // Time + 8 values + SuccessCount + TimeoutCount + 3 Pentair fields
     for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
@@ -92,13 +103,7 @@ describe('Logger', () => {
     expect(parseFloat(parts[10])).toBe(0); // TimeoutCount
   });
 
-  it('appends a second line to an existing log file with a long sample and two normal samples', async () => {
-    // Simulate file exists for the second call
-    mockFs.existsSync.mockReturnValue(true);
-    let writtenContent = [];
-    mockFs.appendFileSync.mockImplementation((filename, content) => {
-      writtenContent.push(content);
-    });
+  it('creates multiple log entries with a long sample and two normal samples', async () => {
     // First sample: all 10s
     const mockClient = makeMockBSClient(createRegisterValues(10));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
@@ -109,19 +114,17 @@ describe('Logger', () => {
     // Third sample: all 4s
     mockClient.updateValues(createRegisterValues(4));
     await advanceTime(mockSettings.log_entry_minutes * 60, logger);
-    // Should have written two log entries (one for each time window)
-    expect(writtenContent.length).toBe(2);
-    // First line: average of 10 and 2 = 6
-    const row1 = writtenContent[0];
-    const parts1 = row1.split(',');
+    // Should have written header + two data rows
+    expect(logFile.content.length).toBe(3); // Header + 2 data rows
+    // First data row: average of 10 and 2 = 6
+    const parts1 = logFile.content[1].split(',');
     for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts1[i])).toBeCloseTo(6, 2);
     }
     expect(parseFloat(parts1[9])).toBe(2); // SuccessCount
     expect(parseFloat(parts1[10])).toBe(0); // TimeoutCount
-    // Second line: just 4
-    const row2 = writtenContent[1];
-    const parts2 = row2.split(',');
+    // Second data row: just 4
+    const parts2 = logFile.content[2].split(',');
     for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts2[i])).toBeCloseTo(4, 2);
     }
@@ -130,8 +133,6 @@ describe('Logger', () => {
   });
 
   it('throws if a single register read fails', async () => {
-    mockFs.existsSync.mockReturnValue(false);
-    mockFs.appendFileSync.mockClear();
     const mockClient = makeMockBSClient({ ...createRegisterValues(2), PhValue: 'FAIL' });
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
     await expect(logger.updateLog()).rejects.toThrow();
@@ -139,8 +140,6 @@ describe('Logger', () => {
   });
 
   it('handles interleaving errors and success', async () => {
-    mockFs.existsSync.mockReturnValue(false);
-    mockFs.appendFileSync.mockClear();
     // Good sample
     const mockClient = makeMockBSClient(createRegisterValues(2));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
@@ -152,10 +151,8 @@ describe('Logger', () => {
     mockClient.updateValues(createRegisterValues(4));
     await advanceTime(10 * 60, logger);
     expect(mockFs.appendFileSync).toHaveBeenCalled();
-    const logCall = mockFs.appendFileSync.mock.calls[0][1];
-    const lines = logCall.split('\n');
-    const dataRow = lines[1];
-    const parts = dataRow.split(',');
+    expect(logFile.content.length).toBe(2); // Header + data row
+    const parts = logFile.content[1].split(','); // Data row
     expect(parts.length).toBe(14); // Time + 8 values + SuccessCount + TimeoutCount + 3 Pentair fields
     for (let i = 1; i <= 8; ++i) {
       expect(parseFloat(parts[i])).toBeCloseTo(3, 2);
@@ -165,8 +162,6 @@ describe('Logger', () => {
   });
 
   it('should not write a log row if all register reads fail (NaN bug test)', async () => {
-    mockFs.existsSync.mockReturnValue(false);
-    mockFs.appendFileSync.mockClear();
     // All reads fail for both samples
     const mockClient = makeMockBSClient(createRegisterValues('FAIL'));
     const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
