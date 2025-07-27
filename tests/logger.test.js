@@ -1,5 +1,7 @@
 const Logger = require('../logger');
 const { BSClient, Registers } = require('../bs-client');
+const WebSocket = require('ws');
+const PentairClient = require('../pentair-client');
 
 const mockFs = {
   existsSync: jest.fn(() => false),
@@ -71,6 +73,95 @@ function makeMockBSClient(registerValueMap) {
   };
   
   return mockClient;
+}
+
+// Mock Pentair server that implements the WebSocket protocol
+class MockPentairServer {
+  constructor(port) {
+    this.server = new WebSocket.Server({ port });
+    this.connections = new Set();
+    this.heaterState = '0';
+    this.setpoint = '80';
+    this.waterTemp = '75';
+    
+    this.server.on('connection', (ws) => {
+      this.connections.add(ws);
+      ws.on('close', () => this.connections.delete(ws));
+      ws.on('message', (data) => this.handleMessage(ws, JSON.parse(data)));
+    });
+  }
+
+  makeStatusMessage() {
+    const message = {
+      command: "NotifyList",
+      objectList: [{
+        objnam: 'B1101',
+        params: {
+          HTMODE: this.heaterState,
+          LOTMP: this.setpoint,
+          TEMP: this.waterTemp
+        }
+      }]
+    };
+    return JSON.stringify(message);
+  }
+
+  handleMessage(ws, message) {
+    if (message.command === 'RequestParamList') {
+      ws.send(this.makeStatusMessage());
+    }
+  }
+
+  sendStatus(ws) {
+    return new Promise((resolve, reject) => {
+      ws.send(this.makeStatusMessage(), (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          // Triple setImmediate is required for proper test timing.
+          // This ensures the WebSocket message is fully processed by the PentairClient
+          // before test assertions run. Single setImmediate or process.nextTick
+          // causes race conditions where tests check state before client processing completes.
+          setImmediate(() => {
+            setImmediate(() => {
+              setImmediate(resolve);
+            });
+          });
+        }
+      });
+    });
+  }
+
+  async turnHeaterOn() {
+    this.heaterState = '1';
+    await this.broadcastStatus();
+  }
+
+  async turnHeaterOff() {
+    this.heaterState = '0';
+    await this.broadcastStatus();
+  }
+
+  async setInvalidHeaterMode(mode) {
+    this.heaterState = mode;
+    await this.broadcastStatus();
+  }
+
+  async broadcastStatus() {
+    const sendPromises = [];
+    
+    for (const ws of this.connections) {
+      if (ws.readyState === WebSocket.OPEN) {
+        sendPromises.push(this.sendStatus(ws));
+      }
+    }
+    
+    await Promise.all(sendPromises);
+  }
+
+  close() {
+    this.server.close();
+  }
 }
 
 describe('Logger', () => {
@@ -192,101 +283,12 @@ describe('Logger', () => {
   });
 
   describe('Heater On Seconds Tests', () => {
-    const WebSocket = require('ws');
-    const PentairClient = require('../pentair-client');
-    
     const MOCK_SERVER_PORT = 6681;
     
     let mockServer;
     let testClient;
     let pentairClient;
     let logger;
-
-    // Mock Pentair server that implements the protocol
-    class MockPentairServer {
-      constructor(port) {
-        this.server = new WebSocket.Server({ port });
-        this.connections = new Set();
-        this.heaterState = '0';
-        this.setpoint = '80';
-        this.waterTemp = '75';
-        
-        this.server.on('connection', (ws) => {
-          this.connections.add(ws);
-          ws.on('close', () => this.connections.delete(ws));
-          ws.on('message', (data) => this.handleMessage(ws, JSON.parse(data)));
-        });
-      }
-
-      makeStatusMessage() {
-        const message = {
-          command: "NotifyList",
-          objectList: [{
-            objnam: 'B1101',
-            params: {
-              HTMODE: this.heaterState,
-              LOTMP: this.setpoint,
-              TEMP: this.waterTemp
-            }
-          }]
-        };
-        return JSON.stringify(message);
-      }
-
-      handleMessage(ws, message) {
-        if (message.command === 'RequestParamList') {
-          ws.send(this.makeStatusMessage());
-        }
-      }
-
-      sendStatus(ws) {
-        return new Promise((resolve, reject) => {
-          ws.send(this.makeStatusMessage(), (error) => {
-            if (error) {
-              reject(error);
-            } else {
-              // Wait multiple event loop ticks for client-side processing
-              setImmediate(() => {
-                setImmediate(() => {
-                  setImmediate(resolve);
-                });
-              });
-            }
-          });
-        });
-      }
-
-      async turnHeaterOn() {
-        this.heaterState = '1';
-        await this.broadcastStatus();
-      }
-
-      async turnHeaterOff() {
-        this.heaterState = '0';
-        await this.broadcastStatus();
-      }
-
-      async setInvalidHeaterMode(mode) {
-        this.heaterState = mode;
-        await this.broadcastStatus();
-      }
-
-      async broadcastStatus() {
-        const sendPromises = [];
-        
-        for (const ws of this.connections) {
-          if (ws.readyState === WebSocket.OPEN) {
-            sendPromises.push(this.sendStatus(ws));
-          }
-        }
-        
-        await Promise.all(sendPromises);
-      }
-
-      close() {
-        this.server.close();
-      }
-    }
 
     beforeEach(async () => {
       mockServer = new MockPentairServer(MOCK_SERVER_PORT);
