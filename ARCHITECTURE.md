@@ -1,10 +1,6 @@
 # BSMon System Architecture
 
-BSMon is a Node.js-based pool monitoring system that provides real-time monitoring, logging, and notifications for pool chemistry and equipment status.
-
-## System Overview
-
-The system consists of a backend Node.js server that communicates with pool equipment via Modbus TCP and WebSocket protocols, and serves a progressive web application for monitoring and control.
+BSMon is a Node.js-based pool monitoring system that provides real-time monitoring, logging, and notifications for pool chemistry and equipment status. The system consists of a backend Node.js server that communicates with pool equipment via Modbus TCP and WebSocket protocols, and serves a progressive web application for monitoring and control.
 
 ## Core Components
 
@@ -24,7 +20,7 @@ The main Express.js application server that:
 - `GET /testNotify` - Send test notification
 
 ### 2. BSClient (bs-client.js)
-Modbus TCP client for communicating with the pool controller:
+Modbus TCP client for communicating with the Blu Sentintel pool chemistry controller:
 - Connects to pool controller via Modbus TCP (port 502)
 - Reads various register types (Float, ASCII, UInt16, UInt32)
 - Polls periodically to provide structured access to pool chemistry data and system status
@@ -76,32 +72,15 @@ Progressive Web Application with:
 ## Data Flow
 
 ### 1. Monitoring Loop
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Timer       │────▶│ pollDevices │────▶│ checkAlarms │
-│ (60s cycle) │     │   Function  │     │   Function  │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │                     │
-                           ▼                     ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │   Logger    │     │ Send Push   │
-                    │ updateLog() │     │Notifications│
-                    └─────────────┘     └─────────────┘
-```
+The system operates on multiple overlapping cycles that handle different aspects of data collection and processing:
 
-### 2. Web Interface
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Browser     │────▶│ GET         │────▶│ BSClient    │
-│ Request     │     │ /api/status │     │ readRegs()  │
-└─────────────┘     └─────────────┘     └─────────────┘
-       ▲                     │                     │
-       │                     ▼                     ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Update UI   │◀────│ JSON        │◀────│ Structured  │
-│ Elements    │     │ Response    │     │ Data        │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
+**Blue Sentinel Polling (60-second cycle)**: The server regularly polls the Blue Sentinel pool controller via Modbus TCP to read chemistry values, system status, and check for new alarm conditions. This polling approach is necessary due to the Modbus protocol's request-response nature.
+
+**Pentair Real-time Updates**: The Pentair heater system provides real-time status updates through a persistent WebSocket connection. Changes in heater status, temperature setpoints, and water temperature are pushed immediately to the BSMon server without polling, enabling responsive monitoring of heating operations.
+
+**Periodic Logging (10-minute intervals)**: The Logger accumulates samples from both the Blue Sentinel polling cycles and Pentair real-time updates, computing mean values over the logging period before writing entries to monthly CSV files. This approach provides historical data while smoothing out short-term fluctuations.
+
+**Alarm Processing**: During each Blue Sentinel polling cycle, the system checks for new alarm conditions and sends push notifications to subscribed clients when thresholds are exceeded or new alarm messages are detected.
 
 ## Configuration
 
