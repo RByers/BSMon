@@ -2,48 +2,68 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
 class PentairClient {
-    constructor(host, port = 6680) {
+    #ws = null;
+
+    constructor(host, port = 6680, nowFn = () => new Date()) {
         this.host = host;
         this.port = port;
-        this.ws = null;
+        this.nowFn = nowFn;
         this.pingTimeout = null;
         this.pingInterval = 60000;
         this.reconnectDelay = 1000; // 1 second
-        this.heaterOn = false;
-        this.heaterOnTime = null;
+        this.reconnectTimeout = null; // Track reconnection timeout
+        this.heaterLastOn = null;
         this.totalHeaterOnTime = 0; // in seconds
         this.setpoint = null;
         this.waterTemp = null;
     }
 
-    connect() {
-        this.ws = new WebSocket(`ws://${this.host}:${this.port}`);
+    async connect() {
+        return new Promise((resolve, reject) => {
+            this.#ws = new WebSocket(`ws://${this.host}:${this.port}`);
 
-        this.ws.on('open', () => {
-            console.log('Connected to Pentair Intellicenter');
-            this.reconnectDelay = 1000; // Reset reconnect delay on successful connection
-            this.heartbeat();
-            this.subscribeToStatus();
-            this.startPingTimer();
-        });
+            const onOpen = () => {
+                this.#ws.removeListener('error', onError);
+                this.reconnectDelay = 1000;
+                this.heartbeat();
+                this.subscribeToStatus();
+                this.startPingTimer();
+                resolve();
+            };
 
-        this.ws.on('message', (data) => {
-            this.heartbeat();
-            const message = JSON.parse(data);
-            this.handleMessage(message);
-        });
+            const onError = (error) => {
+                this.#ws.removeListener('open', onOpen);
+                reject(error);
+            };
 
-        this.ws.on('close', () => {
-            console.log('Disconnected from Pentair Intellicenter');
-            this.stopPingTimer();
-            clearTimeout(this.pingTimeout);
-            setTimeout(() => this.connect(), this.reconnectDelay);
-            this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000); // Exponential backoff up to 5 minutes
-        });
+            this.#ws.once('open', onOpen);
+            this.#ws.once('error', onError);
 
-        this.ws.on('error', (error) => {
-            console.error('Pentair client error:', error);
-            this.ws.close();
+            // Set up ongoing event handlers
+            this.#ws.on('message', (data) => {
+                this.heartbeat();
+                const message = JSON.parse(data);
+                this.handleMessage(message);
+            });
+
+            this.#ws.on('close', () => {
+                this.stopPingTimer();
+                if (!this.#ws) {
+                    // Disconnected intentionally
+                    return;
+                }
+                this.reconnectTimeout = setTimeout(() => this.connect(), this.reconnectDelay);
+                this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000);
+            });
+
+            this.#ws.on('error', (error) => {
+                if (this.#ws) {
+                    console.error('Pentair client error:', error);                
+                }
+                if (this.#ws) {
+                    this.#ws.close();
+                }
+            });
         });
     }
 
@@ -60,7 +80,7 @@ class PentairClient {
                     console.error(`Unexpected HTMODE value: ${body.params.HTMODE}`);
                 }
                 const isHeating = body.params.HTMODE === '1';
-                this.updateHeaterState(isHeating);
+                this.#updateHeaterState(isHeating);
             }
             if (body.params.LOTMP) {
                 this.setpoint = body.params.LOTMP;
@@ -71,31 +91,38 @@ class PentairClient {
         }
     }
 
-    updateHeaterState(isHeating) {
-        if (isHeating && !this.heaterOn) {
-            this.heaterOn = true;
-            this.heaterOnTime = new Date();
-        } else if (!isHeating && this.heaterOn) {
-            this.heaterOn = false;
-            if (this.heaterOnTime) {
-                const diff = (new Date() - this.heaterOnTime) / 1000;
-                this.totalHeaterOnTime += diff;
-                this.heaterOnTime = null;
-            }
+    #updateHeaterState(isHeating) {
+        const now = this.nowFn();
+        //console.log(`Heater state changed: ${isHeating ? 'ON' : 'OFF'} at ${now.toISOString()}`);
+        if (this.heaterLastOn) {
+            const diff = now - this.heaterLastOn;
+            this.totalHeaterOnTime += diff;
         }
+
+        this.heaterLastOn = isHeating ? now : null;
+    }
+
+    getCurrentTotalHeaterOnTime() {
+        let total = this.totalHeaterOnTime;
+        if (this.heaterLastOn) {
+            total += this.nowFn() - this.heaterLastOn;
+        }
+        return total / 1000; // Convert to seconds
     }
 
     heartbeat() {
         clearTimeout(this.pingTimeout);
         this.pingTimeout = setTimeout(() => {
-            this.ws.terminate();
+            if (this.#ws) {
+                this.#ws.terminate();
+            }
         }, this.pingInterval + 5000);
     }
 
     startPingTimer() {
         this.pingTimer = setInterval(() => {
-            if (this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify({ command: "ping" }));
+            if (this.#ws && this.#ws.readyState === WebSocket.OPEN) {
+                this.#ws.send(JSON.stringify({ command: "ping" }));
             }
         }, this.pingInterval);
     }
@@ -104,6 +131,10 @@ class PentairClient {
         if (this.pingTimer) {
             clearInterval(this.pingTimer);
             this.pingTimer = null;
+        }
+        if (this.pingTimeout) {
+            clearTimeout(this.pingTimeout);
+            this.pingTimeout = null;
         }
     }
 
@@ -118,7 +149,25 @@ class PentairClient {
                 }
             ]
         };
-        this.ws.send(JSON.stringify(bodyMessage));
+        if (this.#ws && this.#ws.readyState === WebSocket.OPEN) {
+            this.#ws.send(JSON.stringify(bodyMessage));
+        }
+    }
+
+    disconnect() {
+        clearTimeout(this.reconnectTimeout);
+        this.stopPingTimer();
+        const ws = this.#ws;
+        this.#ws = null; // Signal that we are disconnecting.
+        if (ws) {
+            ws.close();
+        }
+    
+        this.#updateHeaterState(false);
+    }
+
+    isConnected() {
+        return this.#ws && this.#ws.readyState === WebSocket.OPEN;
     }
 
 }
