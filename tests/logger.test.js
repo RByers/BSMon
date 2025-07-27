@@ -297,20 +297,6 @@ describe('Logger', () => {
       }
     }
 
-    // Test utilities
-    function parseLogOutput(content) {
-      const lines = content.split('\n').filter(line => line.trim() !== '');
-      const dataRow = lines[lines.length - 1]; // Get the last non-empty line (most recent data)
-      const parts = dataRow.split(',');
-      return {
-        heaterOnSeconds: parseFloat(parts[CSV_HEADERS.indexOf('HeaterOnSeconds')]),
-        setpoint: parseFloat(parts[CSV_HEADERS.indexOf('setpoint')]),
-        waterTemp: parseFloat(parts[CSV_HEADERS.indexOf('waterTemp')]),
-        header: lines[0]
-      };
-    }
-
-
     beforeEach(async () => {
       mockServer = new MockPentairServer(MOCK_SERVER_PORT);
       testClient = makeMockBSClient(createRegisterValues(2));
@@ -338,12 +324,6 @@ describe('Logger', () => {
     });
 
     it('records heater on seconds when heater cycles on and off within logging period', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
       await advanceTime(1 * 60, logger);
       await mockServer.turnHeaterOn();
       
@@ -354,32 +334,19 @@ describe('Logger', () => {
       await advanceTime(mockSettings.log_entry_minutes * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.heaterOnSeconds).toBe(60);
+      const result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(60);
     });
 
     it('records zero heater on seconds when heater never turns on', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
       await advanceTime(mockSettings.log_entry_minutes * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.heaterOnSeconds).toBe(0);
+      const result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(0);
     });
 
     it('handles multiple on/off cycles within single logging period', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
-
       // First cycle: on for 2 minutes
       await mockServer.turnHeaterOn();
       
@@ -397,17 +364,17 @@ describe('Logger', () => {
       await advanceTime(2 * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.heaterOnSeconds).toBe(300); // 2 + 3 minutes = 5 minutes
+      const result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(300); // 2 + 3 minutes = 5 minutes
     });
 
     it('handles heater remaining on across log period boundary', async () => {
       mockFs.existsSync.mockReturnValue(true);
-      let writtenContent = [];
+      const logContents = [];
       mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent.push(content);
+        const lines = content.split('\n').filter(line => line.trim() !== '');
+        logContents.push(...lines);
       });
-
 
       // Heater turns on at start
       await mockServer.turnHeaterOn();
@@ -422,41 +389,30 @@ describe('Logger', () => {
       // Trigger second log write
       await advanceTime(5 * 60, logger);
 
-      expect(writtenContent.length).toBe(2);
+      expect(mockFs.appendFileSync).toHaveBeenCalledTimes(2);
+      expect(logContents.length).toBe(3); // Header + 2 data rows
       
       // First period: heater was on for full log period
-      const result1 = parseLogOutput(writtenContent[0]);
-      expect(result1.heaterOnSeconds).toBe(mockSettings.log_entry_minutes * 60);
+      const parts1 = logContents[1].split(',');
+      expect(parseFloat(parts1[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(mockSettings.log_entry_minutes * 60);
       
       // Second period: heater was on for 5 minutes
-      const result2 = parseLogOutput(writtenContent[1]);
-      expect(result2.heaterOnSeconds).toBe(300);
+      const parts2 = logContents[2].split(',');
+      expect(parseFloat(parts2[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(300);
     });
 
     it('defaults to zero when no PentairClient is set', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
       logger = new Logger({ bsClient: testClient, fs: mockFs, settings: mockSettings, nowFn });
       await advanceTime(mockSettings.log_entry_minutes * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.heaterOnSeconds).toBe(0);
+      const result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(0);
       expect(result.setpoint).toBe(0);
       expect(result.waterTemp).toBe(0);
     });
 
     it('handles invalid HTMODE values gracefully', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       await mockServer.setInvalidHeaterMode('2'); // Invalid value
@@ -466,34 +422,20 @@ describe('Logger', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Unexpected HTMODE value: 2');
       
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.heaterOnSeconds).toBe(0); // Invalid state ignored
+      const result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(0); // Invalid state ignored
 
       consoleErrorSpy.mockRestore();
     });
 
     it('includes correct CSV header with Pentair fields', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
       await advanceTime(mockSettings.log_entry_minutes * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.header).toBe(CSV_HEADERS.join(','));
+      expect(logFile.content[0]).toBe(CSV_HEADERS.join(','));
     });
 
     it('handles WebSocket disconnection during heating', async () => {
-      mockFs.existsSync.mockReturnValueOnce(false);
-      let writtenContent = '';
-      mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent = content;
-      });
-
-
       // Start heating
       await mockServer.turnHeaterOn();
 
@@ -504,17 +446,17 @@ describe('Logger', () => {
       await advanceTime(5 * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
-      const result = parseLogOutput(writtenContent);
-      expect(result.heaterOnSeconds).toBe(300); // Should record time before disconnection
+      const result = logFile.getLastDataRow();
+      expect(result.HeaterOnSeconds).toBe(300); // Should record time before disconnection
     });
 
     it('handles heater state reset between log periods', async () => {
       mockFs.existsSync.mockReturnValue(true);
-      let writtenContent = [];
+      const logContents = [];
       mockFs.appendFileSync.mockImplementation((filename, content) => {
-        writtenContent.push(content);
+        const lines = content.split('\n').filter(line => line.trim() !== '');
+        logContents.push(...lines);
       });
-
 
       // First log period: heater on for 5 minutes
       await mockServer.turnHeaterOn();
@@ -533,15 +475,16 @@ describe('Logger', () => {
       await mockServer.turnHeaterOff();
       await advanceTime(5 * 60, logger);
 
-      expect(writtenContent.length).toBe(2);
+      expect(mockFs.appendFileSync).toHaveBeenCalledTimes(2);
+      expect(logContents.length).toBe(3); // Header + 2 data rows
       
       // First period: 300 seconds
-      const result1 = parseLogOutput(writtenContent[0]);
-      expect(result1.heaterOnSeconds).toBe(300);
+      const parts1 = logContents[1].split(',');
+      expect(parseFloat(parts1[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(300);
       
       // Second period: 180 seconds
-      const result2 = parseLogOutput(writtenContent[1]);
-      expect(result2.heaterOnSeconds).toBe(180);
+      const parts2 = logContents[2].split(',');
+      expect(parseFloat(parts2[CSV_HEADERS.indexOf('HeaterOnSeconds')])).toBe(180);
     });
   });
 });
