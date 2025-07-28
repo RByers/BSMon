@@ -139,8 +139,39 @@ function calculatePentairUptime(logEntries) {
 }
 
 /**
- * Fetch and calculate both heater duty cycle and Pentair uptime from shared log data
- * @returns {Promise<{dutyCycle: number|null, uptime: number|null}>} Both calculations or null if error
+ * Calculate BS Sentinel uptime from log entries
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @returns {number|null} Uptime percentage (0-100) or null if no data
+ */
+function calculateBSUptime(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
+        return null;
+    }
+    
+    let totalSuccessCount = 0;
+    let totalTimeoutCount = 0;
+    
+    for (const entry of logEntries) {
+        if (entry.hasOwnProperty('SuccessCount') && entry.hasOwnProperty('TimeoutCount')) {
+            totalSuccessCount += entry.SuccessCount || 0;
+            totalTimeoutCount += entry.TimeoutCount || 0;
+        }
+    }
+    
+    const totalSamples = totalSuccessCount + totalTimeoutCount;
+    
+    // Avoid division by zero
+    if (totalSamples === 0) {
+        return null;
+    }
+    
+    const uptime = (totalSuccessCount / totalSamples) * 100;
+    return Math.round(uptime); // Round to whole number
+}
+
+/**
+ * Fetch and calculate heater duty cycle, Pentair uptime, and BS uptime from shared log data
+ * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null}>} All calculations or null if error
  */
 async function getLogMetrics24Hours() {
     try {
@@ -148,13 +179,15 @@ async function getLogMetrics24Hours() {
         const logEntries = parseCSV(csvData);
         return {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
-            uptime: calculatePentairUptime(logEntries)
+            uptime: calculatePentairUptime(logEntries),
+            bsUptime: calculateBSUptime(logEntries)
         };
     } catch (error) {
         console.error('Error getting heater and uptime metrics:', error);
         return {
             dutyCycle: null,
-            uptime: null
+            uptime: null,
+            bsUptime: null
         };
     }
 }
@@ -167,6 +200,7 @@ if (typeof module !== 'undefined' && module.exports) {
         parseCSV,
         calculateHeaterDutyCycle,
         calculatePentairUptime,
+        calculateBSUptime,
         getLogMetrics24Hours
     };
 }

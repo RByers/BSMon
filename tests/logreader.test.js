@@ -1,5 +1,5 @@
 // Unit tests for client-side log reader functionality
-const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime } = require('../static/logreader');
+const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime, calculateBSUptime } = require('../static/logreader');
 
 // Mock fetch for testing
 global.fetch = jest.fn();
@@ -330,6 +330,153 @@ describe('LogReader', () => {
 
             // Skip first (300), so just 300 seconds / 600 seconds time span = 50%
             expect(result).toBe(50);
+        });
+    });
+
+    describe('calculateBSUptime', () => {
+        it('calculates BS uptime correctly', () => {
+            const logEntries = [
+                { SuccessCount: 80, TimeoutCount: 20 }, // 80% success rate
+                { SuccessCount: 90, TimeoutCount: 10 }, // 90% success rate
+                { SuccessCount: 70, TimeoutCount: 30 }  // 70% success rate
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // Total: 240 success / (240 success + 60 timeout) = 240/300 = 80%
+            expect(result).toBe(80);
+        });
+
+        it('rounds to whole number', () => {
+            const logEntries = [
+                { SuccessCount: 85, TimeoutCount: 15 } // 85/100 = 85%
+            ];
+
+            const result = calculateBSUptime(logEntries);
+            expect(result).toBe(85);
+        });
+
+        it('rounds decimal percentages correctly', () => {
+            const logEntries = [
+                { SuccessCount: 1, TimeoutCount: 2 } // 1/3 = 33.33% -> rounds to 33%
+            ];
+
+            const result = calculateBSUptime(logEntries);
+            expect(result).toBe(33);
+        });
+
+        it('returns null for empty log entries', () => {
+            const result = calculateBSUptime([]);
+            expect(result).toBeNull();
+        });
+
+        it('returns null for null input', () => {
+            const result = calculateBSUptime(null);
+            expect(result).toBeNull();
+        });
+
+        it('returns null when total samples is zero', () => {
+            const logEntries = [
+                { SuccessCount: 0, TimeoutCount: 0 },
+                { SuccessCount: 0, TimeoutCount: 0 }
+            ];
+
+            const result = calculateBSUptime(logEntries);
+            expect(result).toBeNull();
+        });
+
+        it('handles missing SuccessCount and TimeoutCount fields', () => {
+            const logEntries = [
+                { Time: '1/1/2024 12:00:00', ClValue: 1.5 }, // No BS fields
+                { SuccessCount: 80, TimeoutCount: 20 }  // Has BS fields
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // Only processes entry with both fields: 80/(80+20) = 80%
+            expect(result).toBe(80);
+        });
+
+        it('treats undefined values as 0', () => {
+            const logEntries = [
+                { SuccessCount: undefined, TimeoutCount: 20 },
+                { SuccessCount: 80, TimeoutCount: undefined }
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // (0 + 80) / (0 + 20 + 80 + 0) = 80/100 = 80%
+            expect(result).toBe(80);
+        });
+
+        it('handles 100% uptime', () => {
+            const logEntries = [
+                { SuccessCount: 100, TimeoutCount: 0 },
+                { SuccessCount: 200, TimeoutCount: 0 }
+            ];
+
+            const result = calculateBSUptime(logEntries);
+            expect(result).toBe(100);
+        });
+
+        it('handles 0% uptime', () => {
+            const logEntries = [
+                { SuccessCount: 0, TimeoutCount: 50 },
+                { SuccessCount: 0, TimeoutCount: 100 }
+            ];
+
+            const result = calculateBSUptime(logEntries);
+            expect(result).toBe(0);
+        });
+
+        it('handles mixed entries with some missing fields', () => {
+            const logEntries = [
+                { SuccessCount: 50, TimeoutCount: 10 }, // Valid entry
+                { Time: '1/1/2024 12:00:00' },          // Missing BS fields
+                { SuccessCount: 40, TimeoutCount: 20 }, // Valid entry
+                { ClValue: 1.5 }                       // Missing BS fields
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // Only processes valid entries: (50 + 40) / (50 + 10 + 40 + 20) = 90/120 = 75%
+            expect(result).toBe(75);
+        });
+
+        it('handles entries where only one field is present', () => {
+            const logEntries = [
+                { SuccessCount: 100 },           // Missing TimeoutCount
+                { TimeoutCount: 50 },            // Missing SuccessCount
+                { SuccessCount: 80, TimeoutCount: 20 } // Both fields present
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // Only processes entry with both fields: 80/(80+20) = 80%
+            expect(result).toBe(80);
+        });
+
+        it('handles large numbers correctly', () => {
+            const logEntries = [
+                { SuccessCount: 9999, TimeoutCount: 1 }
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // 9999/10000 = 99.99% -> rounds to 100%
+            expect(result).toBe(100);
+        });
+
+        it('processes all entries regardless of other fields', () => {
+            const logEntries = [
+                { Time: '1/1/2024 12:00:00', SuccessCount: 50, TimeoutCount: 50, ClValue: 1.5, PentairSeconds: 600 },
+                { Time: '1/1/2024 12:10:00', SuccessCount: 75, TimeoutCount: 25, HeaterOnSeconds: 300 }
+            ];
+
+            const result = calculateBSUptime(logEntries);
+
+            // (50 + 75) / (50 + 50 + 75 + 25) = 125/200 = 62.5% -> rounds to 63%
+            expect(result).toBe(63);
         });
     });
 });

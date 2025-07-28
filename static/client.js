@@ -238,7 +238,7 @@ async function fetchRawStatus() {
     }
 }
 
-// Update log metrics (heater duty cycle and Pentair uptime) using shared data fetch
+// Update log metrics (heater duty cycle, Pentair uptime, and BS uptime) using shared data fetch
 async function updateLogMetrics() {
     try {
         const metrics = await getLogMetrics24Hours();
@@ -256,10 +256,18 @@ async function updateLogMetrics() {
         } else {
             $('pentair-uptime').textContent = '-';
         }
+        
+        // Update BS uptime
+        if (metrics.bsUptime !== null) {
+            $('bs-uptime').textContent = `${metrics.bsUptime}%`;
+        } else {
+            $('bs-uptime').textContent = '-';
+        }
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
         $('pentair-uptime').textContent = '-';
+        $('bs-uptime').textContent = '-';
     }
 }
 
