@@ -15,6 +15,12 @@ const settings = require('./settings.json');
 // Could add a key to prevent abuse
 const MAX_SUBSCRIPTIONS = 20;
 
+// Main state variables
+let bsClient = null;
+let pentairClient = null;
+let logger = null;
+let lastAlarmDate = null;
+
 // Map of endpoint strings to objects with the following properties:
 //  'subscription': The subscription object used directly by WebPush
 //  'settings': UI options for notifications, eg. "clyout-max"
@@ -32,7 +38,6 @@ function writeSubscriptions() {
     let obj = Object.fromEntries(subscriptionMap);
     fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(obj));
 }
-
 
 const RegisterSets = {
     'Chlorine': {
@@ -56,7 +61,6 @@ const RegisterSets = {
         unit: Registers.TempUnit,
     }
 }
-
 
 function roundRegister(val, register) {
     if (`round` in register) {
@@ -85,7 +89,7 @@ async function getRegisterSet(client, rs) {
     return out;
 }
 
-async function generateOutput() {
+async function generateRawOutput() {
     const client = new BSClient(settings);
     await client.connect();
     try {
@@ -105,6 +109,15 @@ async function generateOutput() {
         for (const am of dataAlarms.messages) {
             out += `  ${am.sourceTxt}: ${am.msgTxt} [${am.rdate}]\n`
         }
+
+        out += '\nPentair data:\n';
+        if (pentairClient) {
+            out += `Heater On: ${pentairClient.heaterOn ? 'Yes' : 'No'}\n`;
+            out += `Setpoint: ${pentairClient.setpoint}\n`;
+            out += `Total Heater On Time: ${pentairClient.getCurrentTotalHeaterOnTime()}\n`
+            out += `Total Connection Time: ${pentairClient.getCurrentTotalConnectionTime()}\n`;
+        }
+
         return out;
     } finally {       
         await client.close();
@@ -124,7 +137,7 @@ webpush.setVapidDetails(
 app.get('/status.txt', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-    generateOutput().then((data) => {
+    generateRawOutput().then((data) => {
         res.end(data);
     }).catch((error) => {
         console.error("Error generating status output:", error, error.stack);
@@ -311,12 +324,6 @@ function stopServer() {
     }
 }
 
-const bsClient = new BSClient(settings);
-let pentairClient = null;
-const logger = new Logger({ bsClient, pentairClient });
-
-let lastAlarmDate = null;
-
 async function checkAlarms() {
     let dataAlarms = null;
     try {
@@ -416,16 +423,18 @@ async function pollDevices() {
 
 // If started directly, start the server and polling.
 if (require.main === module) {
-    startServer();
-    pollDevices();
-    setInterval(() => pollDevices(), settings.alarm_poll_seconds * 1000);
-
+    bsClient = new BSClient(settings);
     if (settings.pentair_host) {
         pentairClient = new PentairClient(settings.pentair_host);
         pentairClient.connect();
     } else {
         console.log("No Pentair host configured, skipping Pentair client setup.");
     }
+    logger = new Logger({ bsClient, pentairClient });
+
+    startServer();
+    pollDevices();
+    setInterval(() => pollDevices(), settings.alarm_poll_seconds * 1000);
 }
 
 if (process.env.NODE_ENV === 'test') {
