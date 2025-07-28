@@ -58,66 +58,68 @@ function bitsVal(val, bits) {
 class BSClient {
     #client;
     #settings;
+    #connected;
 
     constructor(settings) {
         this.#settings = settings;
         this.#client = this.#settings.use_fake_controller ? new FakeController() : new ModbusRTU();
+        this.#connected = false;
     }
 
-    connect() {
-        return new Promise((resolve, reject) => {
-            this.#client.connectTCP(this.#settings.bshost, { port: 502 }, () => {
-                this.#client.setID(1);
-                resolve();
-            });
-        });
+    async connect() {
+        if (this.#connected)
+            throw new Error("BSClient already connected");
+        this.#connected = 'connecting';
+        await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
+        this.#connected = true;
+        this.#client.setID(1);
     }
 
-    close() {
-        return new Promise((resolve, reject) => {
-            this.#client.close(resolve);
-        });
+    getConnected() {
+        return this.#connected;
     }
 
-    readRegister(register) {
-        return new Promise((resolve, reject) => {
-            let len = 2;
-            let rn = register.reg;
-            if (register.format == RF.ASCII) {
-                len = register.len / 2;
-                //  Strangely I have to subtract 1 from the register number for ASCII registers
-                rn -= 1;
-            }
+    async close() {
+        this.#connected = false;
+        await this.#client.close();
+    }
 
-            this.#client.readHoldingRegisters(rn, len, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    switch(register.format) {
-                        case RF.Float:
-                            let floatVal = data.buffer.readFloatBE();
-                            resolve(floatVal);
-                            break;
-                        case RF.ASCII:
-                            // Null-terminated string in 16-bit registers, so swap bytes
-                            let buf = data.buffer.swap16();
-                            let i = buf.indexOf(0);
-                            if (i == -1)
-                                i = buf.length;
-                            resolve(buf.toString('latin1', 0, i));
-                            break;
-                        case RF.UInt16:
-                            let u16val = data.buffer.readUInt16BE();
-                            resolve(bitsVal(u16val, register.bits));
-                            break;
-                        case RF.UInt32:
-                            let u32val = data.buffer.readUInt32BE();
-                            resolve(bitsVal(u32val, register.bits));
-                            break;
-                    }
-                }
-            });
-        });
+    async readRegister(register) {
+        if (this.#connected != true) {
+            throw new Error("BSClient Not connected");
+        }
+        let len = 2;
+        let rn = register.reg;
+        if (register.format == RF.ASCII) {
+            len = register.len / 2;
+            //  Strangely I have to subtract 1 from the register number for ASCII registers
+            rn -= 1;
+        }
+
+        let data = await this.#client.readHoldingRegisters(rn, len);
+        // Note: I have seen an issue where readHolderRegisters just never returns,
+        // presumably because the device got into some bad state. Rebooting the device
+        // addressed the issue. Perhaps we should have a timeout so we can identify this error
+        // more clearly.
+        switch(register.format) {
+            case RF.Float:
+                let floatVal = data.buffer.readFloatBE();
+                return floatVal;
+            case RF.ASCII:
+                // Null-terminated string in 16-bit registers, so swap bytes
+                let buf = data.buffer.swap16();
+                let i = buf.indexOf(0);
+                if (i == -1)
+                    i = buf.length;
+                return buf.toString('latin1', 0, i);
+            case RF.UInt16:
+                let u16val = data.buffer.readUInt16BE();
+                return bitsVal(u16val, register.bits);
+            case RF.UInt32:
+                let u32val = data.buffer.readUInt32BE();
+                return bitsVal(u32val, register.bits);
+        }
+        console.error("readRegister - unexpected holding register state");
     }
 
     async getAlarmData() {

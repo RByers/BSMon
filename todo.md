@@ -1,10 +1,7 @@
 # TODO
 
-
 ## Log reader updates
-* Update the server to set headers such that the client fetch will cache the last 24 hour data for the logging interval (eg. 15 minutes).
-* Add pentair uptime to the UI under a new system card. This should be calculated from the pentair total time seconds divided by the time between the log timestamps.
-* Explore how to add blu sentinal uptime to the UI
+* Update the server to set headers such that the client fetch will cache the last 24 hour data for the logging interval (eg. 15 minutes). But restarting the server should invalidate the cache somehow so I don't get confused during development. Should I use eTags for that?
 * Explore how to add bsmon server uptime to the UI
 
 ## UI explorations

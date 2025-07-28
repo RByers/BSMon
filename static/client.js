@@ -238,18 +238,28 @@ async function fetchRawStatus() {
     }
 }
 
-// Update heater duty cycle
-async function updateHeaterDutyCycle() {
+// Update log metrics (heater duty cycle and Pentair uptime) using shared data fetch
+async function updateLogMetrics() {
     try {
-        const dutyCycle = await getHeaterDutyCycle24Hours();
-        if (dutyCycle !== null) {
-            $('heater-duty-cycle').textContent = `${dutyCycle}%`;
+        const metrics = await getLogMetrics24Hours();
+        
+        // Update heater duty cycle
+        if (metrics.dutyCycle !== null) {
+            $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
         } else {
             $('heater-duty-cycle').textContent = '-';
         }
+        
+        // Update Pentair uptime
+        if (metrics.uptime !== null) {
+            $('pentair-uptime').textContent = `${metrics.uptime}%`;
+        } else {
+            $('pentair-uptime').textContent = '-';
+        }
     } catch (error) {
-        console.error('Error updating heater duty cycle:', error);
+        console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
+        $('pentair-uptime').textContent = '-';
     }
 }
 
@@ -289,8 +299,8 @@ async function init() {
     // Fetch initial status
     await fetchStatus();
     
-    // Fetch initial heater duty cycle
-    await updateHeaterDutyCycle();
+    // Fetch initial heater duty cycle and Pentair uptime using shared function
+    await updateLogMetrics();
     
     // Setup raw data modal
     setupRawDataModal();
@@ -324,8 +334,8 @@ async function init() {
     // Set up auto-refresh every 30 seconds
     setInterval(fetchStatus, 30000);
     
-    // Set up heater duty cycle refresh every 15 minutes
-    setInterval(updateHeaterDutyCycle, 15 * 60 * 1000);
+    // Set up heater duty cycle and Pentair uptime refresh every 15 minutes using shared function
+    setInterval(updateLogMetrics, 15 * 60 * 1000);
 }
 
 window.onload = () => { init(); }

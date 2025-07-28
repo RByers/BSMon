@@ -1,5 +1,5 @@
 // Unit tests for client-side log reader functionality
-const { parseCSV, calculateHeaterDutyCycle } = require('../static/logreader');
+const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime } = require('../static/logreader');
 
 // Mock fetch for testing
 global.fetch = jest.fn();
@@ -194,6 +194,142 @@ describe('LogReader', () => {
 
             const result = calculateHeaterDutyCycle(logEntries);
             expect(result).toBe(0);
+        });
+    });
+
+    describe('calculatePentairUptime', () => {
+        it('calculates uptime correctly', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: 600 }, // Skip first entry (unknown time span)
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 480 }, // 8 minutes
+                { Time: '2024-01-01T12:20:00Z', PentairSeconds: 300 }  // 5 minutes
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+
+            // Total Pentair seconds: Skip first (600), so 480 + 300 = 780
+            // Time span: 20 minutes = 1200 seconds
+            // Uptime: 780 / 1200 = 65%
+            expect(result).toBe(65);
+        });
+
+        it('rounds to whole number', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: 500 }, // Skip first entry
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 100 }  // Only count this one
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+
+            // Total: Skip first (500), so just 100 seconds / 600 seconds time span = 16.67% -> rounds to 17%
+            expect(result).toBe(17);
+        });
+
+        it('returns null for empty log entries', () => {
+            const result = calculatePentairUptime([]);
+            expect(result).toBeNull();
+        });
+
+        it('returns null for null input', () => {
+            const result = calculatePentairUptime(null);
+            expect(result).toBeNull();
+        });
+
+        it('returns null for single entry (need at least 2 for time span)', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: 600 }
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+            expect(result).toBeNull();
+        });
+
+        it('returns null when timestamps are missing', () => {
+            const logEntries = [
+                { PentairSeconds: 600 }, // No Time field
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 480 }
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+            expect(result).toBeNull();
+        });
+
+        it('returns null when timestamps are invalid', () => {
+            const logEntries = [
+                { Time: 'invalid-date', PentairSeconds: 600 },
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 480 }
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+            expect(result).toBeNull();
+        });
+
+        it('returns null when time span is zero or negative', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 600 },
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: 480 } // Earlier time
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+            expect(result).toBeNull();
+        });
+
+        it('handles missing PentairSeconds fields', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z' }, // No PentairSeconds field
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 600 }
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+
+            // Only counts entry with PentairSeconds: 600 / 600 seconds = 100%
+            expect(result).toBe(100);
+        });
+
+        it('treats undefined PentairSeconds as 0', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: undefined },
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 300 }
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+
+            // (0 + 300) / 600 seconds = 50%
+            expect(result).toBe(50);
+        });
+
+        it('handles 100% uptime', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: 600 }, // Skip first entry
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 600 }  // Only count this one
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+
+            // Skip first (600), so just 600 seconds / 600 seconds time span = 100%
+            expect(result).toBe(100);
+        });
+
+        it('handles 0% uptime', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', PentairSeconds: 0 },
+                { Time: '2024-01-01T12:10:00Z', PentairSeconds: 0 }
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+            expect(result).toBe(0);
+        });
+
+        it('handles different date formats', () => {
+            const logEntries = [
+                { Time: '1/1/2024 12:00:00', PentairSeconds: 300 }, // Skip first entry
+                { Time: '1/1/2024 12:10:00', PentairSeconds: 300 }  // Only count this one
+            ];
+
+            const result = calculatePentairUptime(logEntries);
+
+            // Skip first (300), so just 300 seconds / 600 seconds time span = 50%
+            expect(result).toBe(50);
         });
     });
 });

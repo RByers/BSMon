@@ -71,7 +71,7 @@ async function readRegisterRounded(client, register) {
 
 async function getRegisterSet(client, rs) {
     let value = await readRegisterRounded(client, rs.value);
-    let unit = await readRegister(client, rs.unit);
+    let unit = await client.readRegister(rs.unit);
 
     let out = `${value} ${unit}`;
     if (rs.setpoint) {
@@ -105,10 +105,10 @@ async function generateOutput() {
         for (const am of dataAlarms.messages) {
             out += `  ${am.sourceTxt}: ${am.msgTxt} [${am.rdate}]\n`
         }
+        return out;
     } finally {       
         await client.close();
     }
-    return out;
 }
 
 const app = express();
@@ -127,7 +127,9 @@ app.get('/status.txt', (req, res) => {
     generateOutput().then((data) => {
         res.end(data);
     }).catch((error) => {
-        res.end("ERROR: " + error.message);
+        console.error("Error generating status output:", error, error.stack);
+        res.status(500);
+        res.end("ERRORX: " + error.message + error.stack);
     });
 });
 
@@ -185,6 +187,7 @@ app.get('/api/status', async (req, res) => {
             await client.close();
         }
     } catch (error) {
+        console.error("Error generating status data:", error, error.stack);
         res.status(500).json({ error: error.message });
     }
 });
@@ -198,6 +201,7 @@ app.get('/api/logs/24h', (req, res) => {
         const csvData = logger.getLast24HoursCSV();
         res.send(csvData);
     } catch (error) {
+        console.error("Error generating log data:", error, error.stack);
         res.status(500).send(`Error generating log data: ${error.message}`);
     }
 });
@@ -322,8 +326,8 @@ async function checkAlarms() {
             logger.incrementTimeoutCount();
             return;
         } else {
-            console.log(`Unexpected error getting alarm data: ${err.message}`);
-            console.log(err);
+            console.error(`Unexpected error getting alarm data: ${err.message}`);
+            console.error(err.stack || err);
             return;
         }
     }
@@ -378,16 +382,23 @@ async function checkAlarms() {
         }
 
     } catch(err) {
-        console.log(`Error polling registers: ${err}`);
+        console.error(`Error polling registers: ${err.message}`);
+        console.error(err.stack || err);
         return;
     }
 }
 
 async function pollDevices() {
+    if(bsClient.getConnected()) {
+        console.log("pollDevices: skipping due to active connection");
+        return;
+    }
+    
     try {
         await bsClient.connect();
     } catch (err) {
-        console.log(`Error connecting to BSClient: ${err}`);
+        console.error(`Error connecting to BSClient: ${err.message}`);
+        console.error(err.stack || err);
         logger.incrementTimeoutCount();
         return;
     }
@@ -396,7 +407,8 @@ async function pollDevices() {
         await checkAlarms();
         await logger.updateLog();
     } catch (err) {
-        console.error("pollDevices error:", err);
+        console.error("pollDevices error:", err.message);
+        console.error(err.stack || err);
     } finally {
         await bsClient.close();
     }
@@ -405,11 +417,14 @@ async function pollDevices() {
 // If started directly, start the server and polling.
 if (require.main === module) {
     startServer();
+    pollDevices();
     setInterval(() => pollDevices(), settings.alarm_poll_seconds * 1000);
 
     if (settings.pentair_host) {
         pentairClient = new PentairClient(settings.pentair_host);
         pentairClient.connect();
+    } else {
+        console.log("No Pentair host configured, skipping Pentair client setup.");
     }
 }
 

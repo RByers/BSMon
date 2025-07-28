@@ -20,54 +20,63 @@ class PentairClient {
         this.waterTemp = null;
     }
 
-    async connect() {
+    connect() {
         return new Promise((resolve, reject) => {
             this.#ws = new WebSocket(`ws://${this.host}:${this.port}`);
 
             const onOpen = () => {
-                this.#ws.removeListener('error', onError);
                 this.reconnectDelay = 1000;
                 this.#updateConnectionState(true);
                 this.heartbeat();
                 this.subscribeToStatus();
                 this.startPingTimer();
+                console.log(`Connected to Pentair server at ${this.host}:${this.port}`);
+            }
+
+            // Handle the first open / error specially so we can resolve or reject the
+            // connection promise.
+            const onFirstOpen = () => {
+                this.#ws.removeListener('error', onFirstError);
+                onOpen();
+
+                // Set up ongoing event handlers
+                this.#ws.on('message', (data) => {
+                    this.heartbeat();
+                    const message = JSON.parse(data);
+                    this.handleMessage(message);
+                });
+
+                this.#ws.on('close', () => {
+                    console.log('Disconnected from Pentair server');
+                    this.#updateConnectionState(false);
+                    this.stopPingTimer();
+                    if (!this.#ws) {
+                        // Disconnected intentionally
+                        return;
+                    }
+                    this.reconnectTimeout = setTimeout(() => this.connect(), this.reconnectDelay);
+                    this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000);
+                });
+
+                this.#ws.on('error', (error) => {
+                    if (this.#ws) {
+                        console.error('Pentair client error:', error);                
+                    }
+                    if (this.#ws) {
+                        this.#ws.close();
+                    }
+                });
+
                 resolve();
             };
 
-            const onError = (error) => {
-                this.#ws.removeListener('open', onOpen);
+            const onFirstError = (error) => {
+                this.#ws.removeListener('open', onFirstOpen);
                 reject(error);
             };
 
-            this.#ws.once('open', onOpen);
-            this.#ws.once('error', onError);
-
-            // Set up ongoing event handlers
-            this.#ws.on('message', (data) => {
-                this.heartbeat();
-                const message = JSON.parse(data);
-                this.handleMessage(message);
-            });
-
-            this.#ws.on('close', () => {
-                this.#updateConnectionState(false);
-                this.stopPingTimer();
-                if (!this.#ws) {
-                    // Disconnected intentionally
-                    return;
-                }
-                this.reconnectTimeout = setTimeout(() => this.connect(), this.reconnectDelay);
-                this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000);
-            });
-
-            this.#ws.on('error', (error) => {
-                if (this.#ws) {
-                    console.error('Pentair client error:', error);                
-                }
-                if (this.#ws) {
-                    this.#ws.close();
-                }
-            });
+            this.#ws.once('open', onFirstOpen);
+            this.#ws.once('error', onFirstError);
         });
     }
 
