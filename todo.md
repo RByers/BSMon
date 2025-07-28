@@ -1,5 +1,7 @@
 # TODO
 
+* Add 24h average Cl and Ph outputs to the UI
+
 ## Log reader updates
 * Update the server to set headers such that the client fetch will cache the last 24 hour data for the logging interval (eg. 15 minutes). But restarting the server should invalidate the cache somehow so I don't get confused during development. Should I use eTags for that?
 * Explore how to add bsmon server uptime to the UI

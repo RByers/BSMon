@@ -114,6 +114,7 @@ async function generateRawOutput() {
         if (pentairClient) {
             out += `Heater On: ${pentairClient.heaterOn ? 'Yes' : 'No'}\n`;
             out += `Setpoint: ${pentairClient.setpoint}\n`;
+            out += `Water Temp: ${pentairClient.waterTemp}\n`;
             out += `Total Heater On Time: ${pentairClient.getCurrentTotalHeaterOnTime()}\n`
             out += `Total Connection Time: ${pentairClient.getCurrentTotalConnectionTime()}\n`;
         }
