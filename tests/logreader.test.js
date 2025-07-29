@@ -1,5 +1,5 @@
 // Unit tests for client-side log reader functionality
-const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime, calculateBSUptime, calculateClOutputAverage24h, calculatePhOutputAverage24h } = require('../static/logreader');
+const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime, calculateBSUptime, calculateClOutputAverage, calculatePhOutputAverage } = require('../static/logreader');
 
 // Mock fetch for testing
 global.fetch = jest.fn();
@@ -480,7 +480,7 @@ describe('LogReader', () => {
         });
     });
 
-    describe('calculateClOutputAverage24h', () => {
+    describe('calculateClOutputAverage', () => {
         it('calculates chlorine output average correctly', () => {
             const logEntries = [
                 { ClYout: 10.5 },
@@ -488,7 +488,7 @@ describe('LogReader', () => {
                 { ClYout: 8.3 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // Average: (10.5 + 15.2 + 8.3) / 3 = 11.33... -> rounds to 11.3
             expect(result).toBe(11.3);
@@ -500,19 +500,19 @@ describe('LogReader', () => {
                 { ClYout: 10.16 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // Average: (10.14 + 10.16) / 2 = 10.15 -> stays 10.2 (rounds to 1 decimal)
             expect(result).toBe(10.2);
         });
 
         it('returns null for empty log entries', () => {
-            const result = calculateClOutputAverage24h([]);
+            const result = calculateClOutputAverage([]);
             expect(result).toBeNull();
         });
 
         it('returns null for null input', () => {
-            const result = calculateClOutputAverage24h(null);
+            const result = calculateClOutputAverage(null);
             expect(result).toBeNull();
         });
 
@@ -522,7 +522,7 @@ describe('LogReader', () => {
                 { Time: '1/1/2024 12:10:00', PhYout: 5.2 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
             expect(result).toBeNull();
         });
 
@@ -533,7 +533,7 @@ describe('LogReader', () => {
                 { Time: '1/1/2024 12:20:00' }               // No ClYout field
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // Only processes entry with ClYout: 12.5
             expect(result).toBe(12.5);
@@ -546,7 +546,7 @@ describe('LogReader', () => {
                 { ClYout: 20.0 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // Only processes numeric values: (10.0 + 20.0) / 2 = 15.0
             expect(result).toBe(15.0);
@@ -559,7 +559,7 @@ describe('LogReader', () => {
                 { ClYout: 0.0 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // Average: (0.0 + 5.0 + 0.0) / 3 = 1.67... -> rounds to 1.7
             expect(result).toBe(1.7);
@@ -571,7 +571,7 @@ describe('LogReader', () => {
                 { ClYout: 13.654321 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // Average: (12.345678 + 13.654321) / 2 = 13.0 (rounded to 1 decimal)
             expect(result).toBe(13.0);
@@ -583,14 +583,14 @@ describe('LogReader', () => {
                 { Time: '1/1/2024 12:10:00', ClYout: 12.5, HeaterOnSeconds: 300 }
             ];
 
-            const result = calculateClOutputAverage24h(logEntries);
+            const result = calculateClOutputAverage(logEntries);
 
             // (8.5 + 12.5) / 2 = 10.5
             expect(result).toBe(10.5);
         });
     });
 
-    describe('calculatePhOutputAverage24h', () => {
+    describe('calculatePhOutputAverage', () => {
         it('calculates pH output average correctly', () => {
             const logEntries = [
                 { PhYout: 5.5 },
@@ -598,7 +598,7 @@ describe('LogReader', () => {
                 { PhYout: 3.3 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // Average: (5.5 + 8.2 + 3.3) / 3 = 5.67... -> rounds to 5.7
             expect(result).toBe(5.7);
@@ -610,19 +610,19 @@ describe('LogReader', () => {
                 { PhYout: 7.16 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // Average: (7.14 + 7.16) / 2 = 7.15 -> rounds to 7.2 (1 decimal)
             expect(result).toBe(7.2);
         });
 
         it('returns null for empty log entries', () => {
-            const result = calculatePhOutputAverage24h([]);
+            const result = calculatePhOutputAverage([]);
             expect(result).toBeNull();
         });
 
         it('returns null for null input', () => {
-            const result = calculatePhOutputAverage24h(null);
+            const result = calculatePhOutputAverage(null);
             expect(result).toBeNull();
         });
 
@@ -632,7 +632,7 @@ describe('LogReader', () => {
                 { Time: '1/1/2024 12:10:00', ClYout: 5.2 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
             expect(result).toBeNull();
         });
 
@@ -643,7 +643,7 @@ describe('LogReader', () => {
                 { Time: '1/1/2024 12:20:00' }               // No PhYout field
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // Only processes entry with PhYout: 4.5
             expect(result).toBe(4.5);
@@ -656,7 +656,7 @@ describe('LogReader', () => {
                 { PhYout: 8.0 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // Only processes numeric values: (6.0 + 8.0) / 2 = 7.0
             expect(result).toBe(7.0);
@@ -669,7 +669,7 @@ describe('LogReader', () => {
                 { PhYout: 0.0 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // Average: (0.0 + 10.0 + 0.0) / 3 = 3.33... -> rounds to 3.3
             expect(result).toBe(3.3);
@@ -681,7 +681,7 @@ describe('LogReader', () => {
                 { PhYout: 7.210876 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // Average: (6.789123 + 7.210876) / 2 = 7.0 (rounded to 1 decimal)
             expect(result).toBe(7.0);
@@ -693,7 +693,7 @@ describe('LogReader', () => {
                 { Time: '1/1/2024 12:10:00', PhYout: 6.5, HeaterOnSeconds: 300 }
             ];
 
-            const result = calculatePhOutputAverage24h(logEntries);
+            const result = calculatePhOutputAverage(logEntries);
 
             // (4.5 + 6.5) / 2 = 5.5
             expect(result).toBe(5.5);

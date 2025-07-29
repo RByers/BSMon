@@ -262,7 +262,7 @@ async function updateLogMetrics() {
         const logIntervalMinutes = statusData.config.logIntervalMinutes;
         const serverTime = new Date(statusData.currentTime);
         
-        const metrics = await getLogMetrics24Hours(logIntervalMinutes, serverTime);
+        const metrics = await getLogMetrics(logIntervalMinutes, serverTime);
         
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
@@ -274,42 +274,42 @@ async function updateLogMetrics() {
         updateUptimeValue('pentair-uptime', metrics.uptime);
         updateUptimeValue('bs-uptime', metrics.bsUptime);
         
-        if (metrics.clOutputAvg24h !== null) {
-            $('cl-output-24h-avg').textContent = `${metrics.clOutputAvg24h.toFixed(1)}%`;
+        if (metrics.clOutputAvg !== null) {
+            $('cl-output-avg').textContent = `${metrics.clOutputAvg.toFixed(1)}%`;
         } else {
-            $('cl-output-24h-avg').textContent = '-';
+            $('cl-output-avg').textContent = '-';
         }
         
-        if (metrics.phOutputAvg24h !== null) {
-            $('ph-output-24h-avg').textContent = `${metrics.phOutputAvg24h.toFixed(1)}%`;
+        if (metrics.phOutputAvg !== null) {
+            $('ph-output-avg').textContent = `${metrics.phOutputAvg.toFixed(1)}%`;
         } else {
-            $('ph-output-24h-avg').textContent = '-';
+            $('ph-output-avg').textContent = '-';
         }
         
         // Update ORP min/max values
         if (metrics.orpMinMax.min !== null) {
-            $('orp-min-24h').textContent = `${Math.round(metrics.orpMinMax.min)} mV`;
+            $('orp-min').textContent = `${Math.round(metrics.orpMinMax.min)} mV`;
         } else {
-            $('orp-min-24h').textContent = '-';
+            $('orp-min').textContent = '-';
         }
         
         if (metrics.orpMinMax.max !== null) {
-            $('orp-max-24h').textContent = `${Math.round(metrics.orpMinMax.max)} mV`;
+            $('orp-max').textContent = `${Math.round(metrics.orpMinMax.max)} mV`;
         } else {
-            $('orp-max-24h').textContent = '-';
+            $('orp-max').textContent = '-';
         }
         
         // Update Temperature min/max values
         if (metrics.tempMinMax.min !== null) {
-            $('temp-min-24h').textContent = `${metrics.tempMinMax.min.toFixed(1)}°F`;
+            $('temp-min').textContent = `${metrics.tempMinMax.min.toFixed(1)}°F`;
         } else {
-            $('temp-min-24h').textContent = '-';
+            $('temp-min').textContent = '-';
         }
         
         if (metrics.tempMinMax.max !== null) {
-            $('temp-max-24h').textContent = `${metrics.tempMinMax.max.toFixed(1)}°F`;
+            $('temp-max').textContent = `${metrics.tempMinMax.max.toFixed(1)}°F`;
         } else {
-            $('temp-max-24h').textContent = '-';
+            $('temp-max').textContent = '-';
         }
         
         // Update Last log time
@@ -332,12 +332,12 @@ async function updateLogMetrics() {
         updateUptimeValue('service-uptime', null);
         updateUptimeValue('pentair-uptime', null);
         updateUptimeValue('bs-uptime', null);
-        $('cl-output-24h-avg').textContent = '-';
-        $('ph-output-24h-avg').textContent = '-';
-        $('orp-min-24h').textContent = '-';
-        $('orp-max-24h').textContent = '-';
-        $('temp-min-24h').textContent = '-';
-        $('temp-max-24h').textContent = '-';
+        $('cl-output-avg').textContent = '-';
+        $('ph-output-avg').textContent = '-';
+        $('orp-min').textContent = '-';
+        $('orp-max').textContent = '-';
+        $('temp-min').textContent = '-';
+        $('temp-max').textContent = '-';
         const lastLogElement = $('last-log-time');
         lastLogElement.textContent = 'Error';
         lastLogElement.classList.add('low-uptime');

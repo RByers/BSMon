@@ -1,10 +1,10 @@
 // Client-side log reading and heater duty cycle calculation
 
 /**
- * Fetch last 24 hours of log data from the server
+ * Fetch log data from the server
  * @returns {Promise<string>} CSV text data
  */
-async function fetchLast24HoursLogs() {
+async function fetchLogs() {
     const response = await fetch('/api/logs/24h');
     if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -193,11 +193,11 @@ function calculateServiceUptime(logEntries, logIntervalMinutes) {
 }
 
 /**
- * Calculate 24-hour average chlorine output from log entries
+ * Calculate average chlorine output from log entries
  * @param {Array<Object>} logEntries - Parsed log entries
  * @returns {number|null} Average chlorine output percentage (0-100) or null if no data
  */
-function calculateClOutputAverage24h(logEntries) {
+function calculateClOutputAverage(logEntries) {
     if (!logEntries || logEntries.length === 0) {
         return null;
     }
@@ -222,11 +222,11 @@ function calculateClOutputAverage24h(logEntries) {
 }
 
 /**
- * Calculate 24-hour average pH output from log entries
+ * Calculate average pH output from log entries
  * @param {Array<Object>} logEntries - Parsed log entries
  * @returns {number|null} Average pH output percentage (0-100) or null if no data
  */
-function calculatePhOutputAverage24h(logEntries) {
+function calculatePhOutputAverage(logEntries) {
     if (!logEntries || logEntries.length === 0) {
         return null;
     }
@@ -251,11 +251,11 @@ function calculatePhOutputAverage24h(logEntries) {
 }
 
 /**
- * Calculate 24-hour min/max ORP values from log entries
+ * Calculate min/max ORP values from log entries
  * @param {Array<Object>} logEntries - Parsed log entries
  * @returns {{min: number|null, max: number|null}} Min and max ORP values or null if no data
  */
-function calculateORPMinMax24h(logEntries) {
+function calculateORPMinMax(logEntries) {
     if (!logEntries || logEntries.length === 0) {
         return {min: null, max: null};
     }
@@ -279,11 +279,11 @@ function calculateORPMinMax24h(logEntries) {
 }
 
 /**
- * Calculate 24-hour min/max Temperature values from log entries
+ * Calculate min/max Temperature values from log entries
  * @param {Array<Object>} logEntries - Parsed log entries
  * @returns {{min: number|null, max: number|null}} Min and max Temperature values or null if no data
  */
-function calculateTempMinMax24h(logEntries) {
+function calculateTempMinMax(logEntries) {
     if (!logEntries || logEntries.length === 0) {
         return {min: null, max: null};
     }
@@ -358,24 +358,24 @@ function calculateTimeSinceLastLog(logEntries, logIntervalMinutes, serverTime) {
 }
 
 /**
- * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, 24h output averages, min/max values, and last log info from shared log data
+ * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, output averages, min/max values, and last log info from shared log data
  * @param {number} logIntervalMinutes - Expected logging interval in minutes (for service uptime calculation)
  * @param {Date} serverTime - Current server time (optional, for accurate last log calculations)
- * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}, lastLog: {timeAgo: string, isStale: boolean}}>} All calculations or null if error
+ * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg: number|null, phOutputAvg: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}, lastLog: {timeAgo: string, isStale: boolean}}>} All calculations or null if error
  */
-async function getLogMetrics24Hours(logIntervalMinutes = null, serverTime = null) {
+async function getLogMetrics(logIntervalMinutes = null, serverTime = null) {
     try {
-        const csvData = await fetchLast24HoursLogs();
+        const csvData = await fetchLogs();
         const logEntries = parseCSV(csvData);
         return {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
             uptime: calculatePentairUptime(logEntries),
             bsUptime: calculateBSUptime(logEntries),
             serviceUptime: logIntervalMinutes ? calculateServiceUptime(logEntries, logIntervalMinutes) : null,
-            clOutputAvg24h: calculateClOutputAverage24h(logEntries),
-            phOutputAvg24h: calculatePhOutputAverage24h(logEntries),
-            orpMinMax: calculateORPMinMax24h(logEntries),
-            tempMinMax: calculateTempMinMax24h(logEntries),
+            clOutputAvg: calculateClOutputAverage(logEntries),
+            phOutputAvg: calculatePhOutputAverage(logEntries),
+            orpMinMax: calculateORPMinMax(logEntries),
+            tempMinMax: calculateTempMinMax(logEntries),
             lastLog: calculateTimeSinceLastLog(logEntries, logIntervalMinutes, serverTime)
         };
     } catch (error) {
@@ -385,8 +385,8 @@ async function getLogMetrics24Hours(logIntervalMinutes = null, serverTime = null
             uptime: null,
             bsUptime: null,
             serviceUptime: null,
-            clOutputAvg24h: null,
-            phOutputAvg24h: null,
+            clOutputAvg: null,
+            phOutputAvg: null,
             orpMinMax: {min: null, max: null},
             tempMinMax: {min: null, max: null},
             lastLog: { timeAgo: 'Error', isStale: true }
@@ -398,18 +398,18 @@ async function getLogMetrics24Hours(logIntervalMinutes = null, serverTime = null
 // Export functions for testing (if in Node.js environment)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        fetchLast24HoursLogs,
+        fetchLogs,
         parseCSV,
         calculateHeaterDutyCycle,
         calculatePentairUptime,
         calculateBSUptime,
         calculateServiceUptime,
-        calculateClOutputAverage24h,
-        calculatePhOutputAverage24h,
-        calculateORPMinMax24h,
-        calculateTempMinMax24h,
+        calculateClOutputAverage,
+        calculatePhOutputAverage,
+        calculateORPMinMax,
+        calculateTempMinMax,
         getLastLogTimestamp,
         calculateTimeSinceLastLog,
-        getLogMetrics24Hours
+        getLogMetrics
     };
 }
