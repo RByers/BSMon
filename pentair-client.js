@@ -115,6 +115,10 @@ class PentairClient {
         this.heaterLastOn = isHeating ? now : null;
     }
 
+    get heaterOn() {
+        return this.heaterLastOn !== null;
+    }
+
     getCurrentTotalHeaterOnTime() {
         let total = this.totalHeaterOnTime;
         if (this.heaterLastOn) {
@@ -196,6 +200,8 @@ class PentairClient {
     
         this.#updateHeaterState(false);
         this.#updateConnectionState(false);
+        this.setpoint = null;
+        this.waterTemp = null;
     }
 
     isConnected() {

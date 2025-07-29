@@ -1,10 +1,13 @@
 # TODO
 
-* Show the heater setpoint whenever there is pentair data (even when the heater is off)
 * Add 24h average Cl and Ph outputs to the UI
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 * Figure out why I am getting "empty response" loading the page from some clients (SW / caching issue?).
 * Update ARCHITECTURE.md to reflect the client-side logreader changes.
+
+## Additional test coverage 
+* Extend the pentair client tests to cover the ping and heartbeat behavior to keep the connection alive.
+* Review the BSclient testing, is using a mock bsclient good enough or should I be using the fake controller? Or perhaps we should create a mock bs server (just like the pentair one) that exposes just a TCP server. Perhaps these can be used for test development as well.
 
 ## Log reader updates
 * Update the server to set headers such that the client fetch will cache the last 24 hour data for the logging interval (eg. 15 minutes). But restarting the server should invalidate the cache somehow so I don't get confused during development. Should I use eTags for that?
