@@ -307,11 +307,63 @@ function calculateTempMinMax24h(logEntries) {
 }
 
 /**
- * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, 24h output averages, and min/max values from shared log data
- * @param {number} logIntervalMinutes - Expected logging interval in minutes (for service uptime calculation)
- * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}}>} All calculations or null if error
+ * Get the timestamp of the last log entry
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @returns {Date|null} Last log timestamp or null if no data
  */
-async function getLogMetrics24Hours(logIntervalMinutes = null) {
+function getLastLogTimestamp(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
+        return null;
+    }
+    
+    const lastEntry = logEntries[logEntries.length - 1];
+    if (!lastEntry.Time) {
+        return null;
+    }
+    
+    const timestamp = new Date(lastEntry.Time);
+    return isNaN(timestamp.getTime()) ? null : timestamp;
+}
+
+/**
+ * Calculate time elapsed since last log entry
+ * Uses server time to avoid timezone and clock synchronization issues
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @param {number} logIntervalMinutes - Expected logging interval in minutes
+ * @param {Date} serverTime - Current server time (optional, defaults to client time)
+ * @returns {{timeAgo: string, isStale: boolean}} Formatted time string and stale flag
+ */
+function calculateTimeSinceLastLog(logEntries, logIntervalMinutes, serverTime) {
+    const lastTimestamp = getLastLogTimestamp(logEntries);
+    
+    if (!lastTimestamp) {
+        return { timeAgo: 'No data', isStale: true };
+    }
+    
+    const elapsedMs = serverTime - lastTimestamp;
+    const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
+    
+    let timeAgo;
+    if (elapsedMinutes < 60) {
+        timeAgo = `${elapsedMinutes}m ago`;
+    } else {
+        timeAgo = `${Math.round(elapsedMinutes / 60)}h ago`;
+    }
+    
+    // Consider stale if more than 5% over the logging interval
+    const staleThresholdMinutes = logIntervalMinutes ? logIntervalMinutes * 1.05 : 10.5; // default 10.5 min (5% over 10min)
+    const isStale = elapsedMinutes > staleThresholdMinutes;
+    
+    return { timeAgo, isStale };
+}
+
+/**
+ * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, 24h output averages, min/max values, and last log info from shared log data
+ * @param {number} logIntervalMinutes - Expected logging interval in minutes (for service uptime calculation)
+ * @param {Date} serverTime - Current server time (optional, for accurate last log calculations)
+ * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}, lastLog: {timeAgo: string, isStale: boolean}}>} All calculations or null if error
+ */
+async function getLogMetrics24Hours(logIntervalMinutes = null, serverTime = null) {
     try {
         const csvData = await fetchLast24HoursLogs();
         const logEntries = parseCSV(csvData);
@@ -323,7 +375,8 @@ async function getLogMetrics24Hours(logIntervalMinutes = null) {
             clOutputAvg24h: calculateClOutputAverage24h(logEntries),
             phOutputAvg24h: calculatePhOutputAverage24h(logEntries),
             orpMinMax: calculateORPMinMax24h(logEntries),
-            tempMinMax: calculateTempMinMax24h(logEntries)
+            tempMinMax: calculateTempMinMax24h(logEntries),
+            lastLog: calculateTimeSinceLastLog(logEntries, logIntervalMinutes, serverTime)
         };
     } catch (error) {
         console.error('Error getting heater and uptime metrics:', error);
@@ -335,7 +388,8 @@ async function getLogMetrics24Hours(logIntervalMinutes = null) {
             clOutputAvg24h: null,
             phOutputAvg24h: null,
             orpMinMax: {min: null, max: null},
-            tempMinMax: {min: null, max: null}
+            tempMinMax: {min: null, max: null},
+            lastLog: { timeAgo: 'Error', isStale: true }
         };
     }
 }
@@ -354,6 +408,8 @@ if (typeof module !== 'undefined' && module.exports) {
         calculatePhOutputAverage24h,
         calculateORPMinMax24h,
         calculateTempMinMax24h,
+        getLastLogTimestamp,
+        calculateTimeSinceLastLog,
         getLogMetrics24Hours
     };
 }

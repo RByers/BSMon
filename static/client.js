@@ -257,11 +257,12 @@ async function fetchRawStatus() {
 // Update log metrics (heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages) using shared data fetch
 async function updateLogMetrics() {
     try {
-        // Get current status to access log interval
+        // Get current status to access log interval and server time
         const statusData = await fetchStatus();
-        const logIntervalMinutes = statusData?.config?.logIntervalMinutes;
+        const logIntervalMinutes = statusData.config.logIntervalMinutes;
+        const serverTime = new Date(statusData.currentTime);
         
-        const metrics = await getLogMetrics24Hours(logIntervalMinutes);
+        const metrics = await getLogMetrics24Hours(logIntervalMinutes, serverTime);
         
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
@@ -310,6 +311,21 @@ async function updateLogMetrics() {
         } else {
             $('temp-max-24h').textContent = '-';
         }
+        
+        // Update Last log time
+        if (metrics.lastLog) {
+            const lastLogElement = $('last-log-time');
+            lastLogElement.textContent = metrics.lastLog.timeAgo;
+            if (metrics.lastLog.isStale) {
+                lastLogElement.classList.add('low-uptime');
+            } else {
+                lastLogElement.classList.remove('low-uptime');
+            }
+        } else {
+            const lastLogElement = $('last-log-time');
+            lastLogElement.textContent = '-';
+            lastLogElement.classList.remove('low-uptime');
+        }
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
@@ -322,6 +338,9 @@ async function updateLogMetrics() {
         $('orp-max-24h').textContent = '-';
         $('temp-min-24h').textContent = '-';
         $('temp-max-24h').textContent = '-';
+        const lastLogElement = $('last-log-time');
+        lastLogElement.textContent = 'Error';
+        lastLogElement.classList.add('low-uptime');
     }
 }
 

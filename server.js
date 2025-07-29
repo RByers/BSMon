@@ -196,10 +196,11 @@ app.get('/api/status', async (req, res) => {
                 statusData.setpoint = pentairClient.setpoint;
             }
             
-            // Add server configuration
+            // Add server configuration and current time
             statusData.config = {
                 logIntervalMinutes: settings.log_entry_minutes
             };
+            statusData.currentTime = new Date();
             
             res.json(statusData);
         } finally {
