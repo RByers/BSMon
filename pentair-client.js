@@ -30,7 +30,7 @@ class PentairClient {
                 this.heartbeat();
                 this.subscribeToStatus();
                 this.startPingTimer();
-                console.log(`Connected to Pentair server at ${this.host}:${this.port}`);
+                //console.log(`Connected to Pentair server at ${this.host}:${this.port}`);
             }
 
             // Handle the first open / error specially so we can resolve or reject the
@@ -47,7 +47,7 @@ class PentairClient {
                 });
 
                 this.#ws.on('close', () => {
-                    console.log('Disconnected from Pentair server');
+                    //console.log('Disconnected from Pentair server');
                     this.#updateConnectionState(false);
                     this.stopPingTimer();
                     if (!this.#ws) {

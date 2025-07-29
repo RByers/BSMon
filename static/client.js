@@ -238,36 +238,47 @@ async function fetchRawStatus() {
     }
 }
 
-// Update log metrics (heater duty cycle, Pentair uptime, and BS uptime) using shared data fetch
+// Update log metrics (heater duty cycle, Pentair uptime, BS uptime, and 24h output averages) using shared data fetch
 async function updateLogMetrics() {
     try {
         const metrics = await getLogMetrics24Hours();
         
-        // Update heater duty cycle
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
         } else {
             $('heater-duty-cycle').textContent = '-';
         }
         
-        // Update Pentair uptime
         if (metrics.uptime !== null) {
             $('pentair-uptime').textContent = `${metrics.uptime}%`;
         } else {
             $('pentair-uptime').textContent = '-';
         }
         
-        // Update BS uptime
         if (metrics.bsUptime !== null) {
             $('bs-uptime').textContent = `${metrics.bsUptime}%`;
         } else {
             $('bs-uptime').textContent = '-';
+        }
+        
+        if (metrics.clOutputAvg24h !== null) {
+            $('cl-output-24h-avg').textContent = `${metrics.clOutputAvg24h.toFixed(1)}%`;
+        } else {
+            $('cl-output-24h-avg').textContent = '-';
+        }
+        
+        if (metrics.phOutputAvg24h !== null) {
+            $('ph-output-24h-avg').textContent = `${metrics.phOutputAvg24h.toFixed(1)}%`;
+        } else {
+            $('ph-output-24h-avg').textContent = '-';
         }
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
         $('pentair-uptime').textContent = '-';
         $('bs-uptime').textContent = '-';
+        $('cl-output-24h-avg').textContent = '-';
+        $('ph-output-24h-avg').textContent = '-';
     }
 }
 

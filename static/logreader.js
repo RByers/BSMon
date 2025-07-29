@@ -170,8 +170,66 @@ function calculateBSUptime(logEntries) {
 }
 
 /**
- * Fetch and calculate heater duty cycle, Pentair uptime, and BS uptime from shared log data
- * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null}>} All calculations or null if error
+ * Calculate 24-hour average chlorine output from log entries
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @returns {number|null} Average chlorine output percentage (0-100) or null if no data
+ */
+function calculateClOutputAverage24h(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
+        return null;
+    }
+    
+    let totalClOutput = 0;
+    let validEntries = 0;
+    
+    for (const entry of logEntries) {
+        if (entry.hasOwnProperty('ClYout') && typeof entry.ClYout === 'number') {
+            totalClOutput += entry.ClYout;
+            validEntries++;
+        }
+    }
+    
+    // Avoid division by zero
+    if (validEntries === 0) {
+        return null;
+    }
+    
+    const average = totalClOutput / validEntries;
+    return Math.round(average * 10) / 10; // Round to 1 decimal place
+}
+
+/**
+ * Calculate 24-hour average pH output from log entries
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @returns {number|null} Average pH output percentage (0-100) or null if no data
+ */
+function calculatePhOutputAverage24h(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
+        return null;
+    }
+    
+    let totalPhOutput = 0;
+    let validEntries = 0;
+    
+    for (const entry of logEntries) {
+        if (entry.hasOwnProperty('PhYout') && typeof entry.PhYout === 'number') {
+            totalPhOutput += entry.PhYout;
+            validEntries++;
+        }
+    }
+    
+    // Avoid division by zero
+    if (validEntries === 0) {
+        return null;
+    }
+    
+    const average = totalPhOutput / validEntries;
+    return Math.round(average * 10) / 10; // Round to 1 decimal place
+}
+
+/**
+ * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, and 24h output averages from shared log data
+ * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null}>} All calculations or null if error
  */
 async function getLogMetrics24Hours() {
     try {
@@ -180,14 +238,18 @@ async function getLogMetrics24Hours() {
         return {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
             uptime: calculatePentairUptime(logEntries),
-            bsUptime: calculateBSUptime(logEntries)
+            bsUptime: calculateBSUptime(logEntries),
+            clOutputAvg24h: calculateClOutputAverage24h(logEntries),
+            phOutputAvg24h: calculatePhOutputAverage24h(logEntries)
         };
     } catch (error) {
         console.error('Error getting heater and uptime metrics:', error);
         return {
             dutyCycle: null,
             uptime: null,
-            bsUptime: null
+            bsUptime: null,
+            clOutputAvg24h: null,
+            phOutputAvg24h: null
         };
     }
 }
@@ -201,6 +263,8 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateHeaterDutyCycle,
         calculatePentairUptime,
         calculateBSUptime,
+        calculateClOutputAverage24h,
+        calculatePhOutputAverage24h,
         getLogMetrics24Hours
     };
 }
