@@ -3,7 +3,6 @@
 * Add 24h average Cl and Ph outputs to the UI
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 * Figure out why I am getting "empty response" loading the page from some clients (SW / caching issue?).
-* Update ARCHITECTURE.md to reflect the client-side logreader changes.
 
 ## Additional test coverage 
 * Extend the pentair client tests to cover the ping and heartbeat behavior to keep the connection alive.

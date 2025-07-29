@@ -60,14 +60,14 @@ Data logging system that:
 Progressive Web Application with:
 - **index.html** - Main dashboard interface with metric cards
 - **client.js** - JavaScript for API communication, notifications, UI updates
-- **logreader.js** - Client-side CSV parsing and heater duty cycle calculation
+- **logreader.js** - Client-side CSV parsing and metric calculations
 - **style.css** - Responsive CSS styling
 - **sw.js** - Service worker for push notifications, no explicit offline support
 - **manifest.json** - PWA manifest for installability
 
 **Features:**
 - Real-time status updates (30-second refresh)
-- Heater duty cycle display (15-minute refresh for 24-hour historical data)
+- Client-side calculated metrics based on server-stored log data
 - Push notification settings with threshold configuration
 - Raw data modal for detailed system information
 - Responsive design for mobile and desktop
@@ -106,34 +106,14 @@ The system operates on multiple overlapping cycles that handle different aspects
 - **web-push**: Push notification support
 - **uuid**: Unique identifier generation
 
-### File Structure
-```
-BSMon/
-├── server.js              # Main server application
-├── bs-client.js          # Pool controller client
-├── pentair-client.js     # Heater system client
-├── logger.js             # Data logging system
-├── fake-controller.js    # Testing utilities
-├── dump-heater.js        # Utility scripts
-├── settings.json         # Runtime configuration
-├── subscriptions.json    # Push notification subscriptions
-├── static/               # Web application files
-│   ├── index.html
-│   ├── client.js
-│   ├── style.css
-│   ├── sw.js
-│   ├── manifest.json
-│   └── log-*.csv        # Generated log files
-└── tests/               # Test suites
-```
-
 ### Service Installation
 The system includes `bsmon.service` for systemd service management on Linux systems.
 
-## Testing
+## Testing (tests/)
 
 The system includes comprehensive test suites:
 - **logger.test.js**: Logger functionality and data integrity
+- **logreader.test.js**: Client-side CSV parsing and metric calculations
 - **bitsVal.test.js**: Bit field parsing validation
 - **roundRegister.test.js**: Number rounding and formatting
 - **sanity.test.js**: Basic system functionality
