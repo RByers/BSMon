@@ -212,17 +212,20 @@ app.get('/api/status', async (req, res) => {
     }
 });
 
-app.get('/api/logs/24h', (req, res) => {
+app.get('/api/logs', (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="last24hours.csv"');
     
     try {
+        // Parse and validate days parameter
+        let days = parseInt(req.query.days) || 1; // Default to 1 day (24h)
+        days = Math.max(1, Math.min(30, days)); // Cap between 1 and 30 days
+        
         const logger = new Logger();
         const now = new Date();
-        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const startTime = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
         
         // Generate ETag based on log file metadata
-        const etag = logger.getLogFilesETag(twentyFourHoursAgo, now);
+        const etag = logger.getLogFilesETag(startTime, now);
         res.setHeader('ETag', etag);
         
         // Check if client already has this version
@@ -233,7 +236,7 @@ app.get('/api/logs/24h', (req, res) => {
         }
         
         // Generate and send the CSV data
-        const csvData = logger.getHistoricalCSV(twentyFourHoursAgo, now);
+        const csvData = logger.getHistoricalCSV(startTime, now);
         res.send(csvData);
     } catch (error) {
         console.error("Error generating log data:", error, error.stack);

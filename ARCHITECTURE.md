@@ -15,7 +15,7 @@ The main Express.js application server that:
 **Key Endpoints:**
 - `GET /api/status` - JSON structured status data
 - `GET /status.txt` - Human-readable text status
-- `GET /api/logs/24h` - CSV data for last 24 hours of log entries
+- `GET /api/logs?days=N` - CSV data for last N days of log entries (capped at 30, defaults to 1)
 - `POST /subscribe` - Subscribe to push notifications
 - `POST /unsubscribe` - Unsubscribe from notifications
 - `GET /testNotify` - Send test notification

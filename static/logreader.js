@@ -2,10 +2,11 @@
 
 /**
  * Fetch log data from the server
+ * @param {number} days - Number of days of data to fetch (defaults to 1)
  * @returns {Promise<string>} CSV text data
  */
-async function fetchLogs() {
-    const response = await fetch('/api/logs/24h');
+async function fetchLogs(days = 1) {
+    const response = await fetch(`/api/logs?days=${days}`);
     if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
     }
