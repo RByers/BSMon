@@ -107,6 +107,11 @@ main {
     grid-column: 1 / -1; /* Span full width */
 }
 
+/* Low uptime styling */
+.low-uptime {
+    color: var(--error-color) !important;
+}
+
 /* Alarms card */
 .alarms {
     grid-column: 1 / -1; /* Make alarms span full width */

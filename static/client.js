@@ -102,6 +102,22 @@ async function initNotifyButtion() {
     }
 }
 
+// Helper function to update uptime values with low-uptime styling
+function updateUptimeValue(elementId, value) {
+    const element = $(elementId);
+    if (value !== null) {
+        element.textContent = `${value.toFixed(1)}%`;
+        if (value < 95) {
+            element.classList.add('low-uptime');
+        } else {
+            element.classList.remove('low-uptime');
+        }
+    } else {
+        element.textContent = '-';
+        element.classList.remove('low-uptime');
+    }
+}
+
 let debounceTimeout = null;
 function saveDebounce() {
     if (debounceTimeout) {
@@ -253,23 +269,9 @@ async function updateLogMetrics() {
             $('heater-duty-cycle').textContent = '-';
         }
         
-        if (metrics.serviceUptime !== null) {
-            $('service-uptime').textContent = `${metrics.serviceUptime.toFixed(1)}%`;
-        } else {
-            $('service-uptime').textContent = '-';
-        }
-        
-        if (metrics.uptime !== null) {
-            $('pentair-uptime').textContent = `${metrics.uptime.toFixed(1)}%`;
-        } else {
-            $('pentair-uptime').textContent = '-';
-        }
-        
-        if (metrics.bsUptime !== null) {
-            $('bs-uptime').textContent = `${metrics.bsUptime.toFixed(1)}%`;
-        } else {
-            $('bs-uptime').textContent = '-';
-        }
+        updateUptimeValue('service-uptime', metrics.serviceUptime);
+        updateUptimeValue('pentair-uptime', metrics.uptime);
+        updateUptimeValue('bs-uptime', metrics.bsUptime);
         
         if (metrics.clOutputAvg24h !== null) {
             $('cl-output-24h-avg').textContent = `${metrics.clOutputAvg24h.toFixed(1)}%`;
@@ -285,9 +287,9 @@ async function updateLogMetrics() {
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
-        $('service-uptime').textContent = '-';
-        $('pentair-uptime').textContent = '-';
-        $('bs-uptime').textContent = '-';
+        updateUptimeValue('service-uptime', null);
+        updateUptimeValue('pentair-uptime', null);
+        updateUptimeValue('bs-uptime', null);
         $('cl-output-24h-avg').textContent = '-';
         $('ph-output-24h-avg').textContent = '-';
     }
