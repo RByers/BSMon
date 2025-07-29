@@ -284,6 +284,32 @@ async function updateLogMetrics() {
         } else {
             $('ph-output-24h-avg').textContent = '-';
         }
+        
+        // Update ORP min/max values
+        if (metrics.orpMinMax.min !== null) {
+            $('orp-min-24h').textContent = `${Math.round(metrics.orpMinMax.min)} mV`;
+        } else {
+            $('orp-min-24h').textContent = '-';
+        }
+        
+        if (metrics.orpMinMax.max !== null) {
+            $('orp-max-24h').textContent = `${Math.round(metrics.orpMinMax.max)} mV`;
+        } else {
+            $('orp-max-24h').textContent = '-';
+        }
+        
+        // Update Temperature min/max values
+        if (metrics.tempMinMax.min !== null) {
+            $('temp-min-24h').textContent = `${metrics.tempMinMax.min.toFixed(1)}°F`;
+        } else {
+            $('temp-min-24h').textContent = '-';
+        }
+        
+        if (metrics.tempMinMax.max !== null) {
+            $('temp-max-24h').textContent = `${metrics.tempMinMax.max.toFixed(1)}°F`;
+        } else {
+            $('temp-max-24h').textContent = '-';
+        }
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
@@ -292,6 +318,10 @@ async function updateLogMetrics() {
         updateUptimeValue('bs-uptime', null);
         $('cl-output-24h-avg').textContent = '-';
         $('ph-output-24h-avg').textContent = '-';
+        $('orp-min-24h').textContent = '-';
+        $('orp-max-24h').textContent = '-';
+        $('temp-min-24h').textContent = '-';
+        $('temp-max-24h').textContent = '-';
     }
 }
 

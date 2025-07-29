@@ -217,7 +217,22 @@ app.get('/api/logs/24h', (req, res) => {
     
     try {
         const logger = new Logger();
-        const csvData = logger.getLast24HoursCSV();
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        // Generate ETag based on log file metadata
+        const etag = logger.getLogFilesETag(twentyFourHoursAgo, now);
+        res.setHeader('ETag', etag);
+        
+        // Check if client already has this version
+        const clientETag = req.headers['if-none-match'];
+        if (clientETag && clientETag === etag) {
+            res.status(304).end();
+            return;
+        }
+        
+        // Generate and send the CSV data
+        const csvData = logger.getHistoricalCSV(twentyFourHoursAgo, now);
         res.send(csvData);
     } catch (error) {
         console.error("Error generating log data:", error, error.stack);

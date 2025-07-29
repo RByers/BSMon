@@ -475,6 +475,135 @@ describe('Logger', () => {
     });
   });
 
+  describe('HTTP Caching methods', () => {
+    let mockFs;
+    let logger;
+
+    beforeEach(() => {
+      mockFs = {
+        existsSync: jest.fn(),
+        statSync: jest.fn()
+      };
+      logger = new Logger({ fs: mockFs });
+    });
+
+    describe('getLogFilesForTimeRange', () => {
+      it('returns correct files for time range within same month', () => {
+        const start = new Date(2024, 0, 15, 12, 0, 0); // Jan 15, 2024
+        const end = new Date(2024, 0, 20, 12, 0, 0);   // Jan 20, 2024
+        
+        const files = logger.getLogFilesForTimeRange(start, end);
+        
+        expect(files).toEqual(['static/log-2024-1.csv']);
+      });
+
+      it('returns correct files for time range crossing month boundary', () => {
+        const start = new Date(2024, 0, 31, 18, 0, 0); // Jan 31, 2024 18:00
+        const end = new Date(2024, 1, 2, 6, 0, 0);     // Feb 2, 2024 06:00
+        
+        const files = logger.getLogFilesForTimeRange(start, end);
+        
+        expect(files).toEqual(['static/log-2024-1.csv', 'static/log-2024-2.csv']);
+      });
+    });
+
+    describe('getLogFileMetadata', () => {
+      it('returns correct metadata for existing files', () => {
+        const files = ['static/log-2024-1.csv', 'static/log-2024-2.csv'];
+        mockFs.existsSync.mockImplementation(filename => filename === 'static/log-2024-1.csv');
+        mockFs.statSync.mockReturnValue({
+          mtime: new Date(2024, 0, 1, 12, 0, 0),
+          size: 1024
+        });
+        
+        const metadata = logger.getLogFileMetadata(files);
+        
+        expect(metadata).toHaveLength(2);
+        expect(metadata[0]).toEqual({
+          path: 'static/log-2024-1.csv',
+          exists: true,
+          mtime: new Date(2024, 0, 1, 12, 0, 0).getTime(),
+          size: 1024
+        });
+        expect(metadata[1]).toEqual({
+          path: 'static/log-2024-2.csv',
+          exists: false,
+          mtime: 0,
+          size: 0
+        });
+      });
+
+      it('handles file stat errors gracefully', () => {
+        const files = ['static/log-2024-1.csv'];
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        mockFs.existsSync.mockReturnValue(true);
+        mockFs.statSync.mockImplementation(() => {
+          throw new Error('File stat error');
+        });
+        
+        const metadata = logger.getLogFileMetadata(files);
+        
+        expect(metadata[0]).toEqual({
+          path: 'static/log-2024-1.csv',
+          exists: false,
+          mtime: 0,
+          size: 0
+        });
+        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Error getting stats'), expect.any(Error));
+        
+        consoleErrorSpy.mockRestore();
+      });
+    });
+
+    describe('getLogFilesETag', () => {
+      it('generates consistent ETag for same file metadata', () => {
+        const start = new Date(2024, 0, 1, 12, 0, 0);
+        const end = new Date(2024, 0, 2, 12, 0, 0);
+        mockFs.existsSync.mockReturnValue(true);
+        mockFs.statSync.mockReturnValue({
+          mtime: new Date(2024, 0, 1, 12, 0, 0),
+          size: 1024
+        });
+        
+        const etag1 = logger.getLogFilesETag(start, end);
+        const etag2 = logger.getLogFilesETag(start, end);
+        
+        expect(etag1).toBe(etag2);
+        expect(etag1).toMatch(/^"[\d-|]+"$/); // Should be quoted string with mtime-size format
+      });
+
+      it('generates different ETags for different file metadata', () => {
+        const start = new Date(2024, 0, 1, 12, 0, 0);
+        const end = new Date(2024, 0, 2, 12, 0, 0);
+        mockFs.existsSync.mockReturnValue(true);
+        
+        mockFs.statSync.mockReturnValueOnce({
+          mtime: new Date(2024, 0, 1, 12, 0, 0),
+          size: 1024
+        });
+        const etag1 = logger.getLogFilesETag(start, end);
+        
+        mockFs.statSync.mockReturnValueOnce({
+          mtime: new Date(2024, 0, 1, 13, 0, 0), // Different time
+          size: 1024
+        });
+        const etag2 = logger.getLogFilesETag(start, end);
+        
+        expect(etag1).not.toBe(etag2);
+      });
+
+      it('returns "empty" ETag when no files exist', () => {
+        const start = new Date(2024, 0, 1, 12, 0, 0);
+        const end = new Date(2024, 0, 2, 12, 0, 0);
+        mockFs.existsSync.mockReturnValue(false);
+        
+        const etag = logger.getLogFilesETag(start, end);
+        
+        expect(etag).toBe('"empty"');
+      });
+    });
+  });
+
   describe('getLast24HoursCSV', () => {
     let mockFs;
     let logger;

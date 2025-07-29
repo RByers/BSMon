@@ -40,15 +40,11 @@ class Logger {
         return out;
     }
 
-    getLast24HoursCSV(nowFn = () => new Date()) {
-        const now = nowFn();
-        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        
-        // Determine which log files we might need
-        const currentMonth = now.getMonth() + 1;
-        const currentYear = now.getFullYear();
-        const previousMonth = twentyFourHoursAgo.getMonth() + 1;
-        const previousYear = twentyFourHoursAgo.getFullYear();
+    getLogFilesForTimeRange(startTime, endTime) {
+        const currentMonth = endTime.getMonth() + 1;
+        const currentYear = endTime.getFullYear();
+        const previousMonth = startTime.getMonth() + 1;
+        const previousYear = startTime.getFullYear();
         
         const filesToCheck = [];
         
@@ -57,6 +53,49 @@ class Logger {
             filesToCheck.push(`static/log-${previousYear}-${previousMonth}.csv`);
         }
         filesToCheck.push(`static/log-${currentYear}-${currentMonth}.csv`);
+        
+        return filesToCheck;
+    }
+
+    getLogFileMetadata(files) {
+        return files.map(fileName => {
+            try {
+                if (this.#fs.existsSync(fileName)) {
+                    const stats = this.#fs.statSync(fileName);
+                    return {
+                        path: fileName,
+                        exists: true,
+                        mtime: stats.mtime.getTime(),
+                        size: stats.size
+                    };
+                }
+            } catch (error) {
+                console.error(`Error getting stats for ${fileName}:`, error);
+            }
+            return {
+                path: fileName,
+                exists: false,
+                mtime: 0,
+                size: 0
+            };
+        });
+    }
+
+    getLogFilesETag(startTime, endTime) {
+        const files = this.getLogFilesForTimeRange(startTime, endTime);
+        const metadata = this.getLogFileMetadata(files);
+        
+        // Create ETag from file metadata - includes modification times and sizes
+        const etag = metadata
+            .filter(meta => meta.exists)
+            .map(meta => `${meta.mtime}-${meta.size}`)
+            .join('|');
+        
+        return etag ? `"${etag}"` : '"empty"';
+    }
+
+    getHistoricalCSV(startTime, endTime) {
+        const filesToCheck = this.getLogFilesForTimeRange(startTime, endTime);
         
         const header = this.#generateCSVHeader();
         const lines = [header];
@@ -78,8 +117,8 @@ class Logger {
                         const timestampStr = line.substring(0, firstComma);
                         const timestamp = new Date(timestampStr);
                         
-                        // Check if timestamp is within last 24 hours
-                        if (timestamp >= twentyFourHoursAgo && timestamp <= now) {
+                        // Check if timestamp is within time range
+                        if (timestamp >= startTime && timestamp <= endTime) {
                             lines.push(line);
                         }
                     }
@@ -90,6 +129,12 @@ class Logger {
         }
         
         return lines.join('\n') + '\n';
+    }
+
+    getLast24HoursCSV(nowFn = () => new Date()) {
+        const now = nowFn();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        return this.getHistoricalCSV(twentyFourHoursAgo, now);
     }
 
     incrementTimeoutCount() {

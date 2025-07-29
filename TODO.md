@@ -1,5 +1,6 @@
 # TODO
 
+* Add a 'Last log:' item to the uptimes card which shows how much time has passed since the last log entry was written, and make it red if it's longer than the logging interval.
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 * Figure out why I am getting "empty response" loading the page from some clients (SW / caching issue?).
 
@@ -8,7 +9,6 @@
 * Review the BSclient testing, is using a mock bsclient good enough or should I be using the fake controller? Or perhaps we should create a mock bs server (just like the pentair one) that exposes just a TCP server. Perhaps these can be used for test development as well.
 
 ## Log reader updates
-* Update the server to set headers such that the client fetch will cache the last 24 hour data for the logging interval (eg. 15 minutes). But restarting the server should invalidate the cache somehow so I don't get confused during development. Should I use eTags for that?
 * Provide the logging interval setting from the server to the client via the status endpoint
 * Compute missing logging data by comparing log timestamps to the logging interval setting and use that to generate a bsmon service uptime figure added to the uptime card.
 * Make tapping on the uptime card show a graph over time for al three lines.

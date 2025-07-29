@@ -251,9 +251,65 @@ function calculatePhOutputAverage24h(logEntries) {
 }
 
 /**
- * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages from shared log data
+ * Calculate 24-hour min/max ORP values from log entries
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @returns {{min: number|null, max: number|null}} Min and max ORP values or null if no data
+ */
+function calculateORPMinMax24h(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
+        return {min: null, max: null};
+    }
+    
+    let minValue = null;
+    let maxValue = null;
+    
+    for (const entry of logEntries) {
+        if (entry.hasOwnProperty('ORPValue') && typeof entry.ORPValue === 'number') {
+            const value = entry.ORPValue;
+            if (minValue === null || value < minValue) {
+                minValue = value;
+            }
+            if (maxValue === null || value > maxValue) {
+                maxValue = value;
+            }
+        }
+    }
+    
+    return {min: minValue, max: maxValue};
+}
+
+/**
+ * Calculate 24-hour min/max Temperature values from log entries
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @returns {{min: number|null, max: number|null}} Min and max Temperature values or null if no data
+ */
+function calculateTempMinMax24h(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
+        return {min: null, max: null};
+    }
+    
+    let minValue = null;
+    let maxValue = null;
+    
+    for (const entry of logEntries) {
+        if (entry.hasOwnProperty('TempValue') && typeof entry.TempValue === 'number') {
+            const value = entry.TempValue;
+            if (minValue === null || value < minValue) {
+                minValue = value;
+            }
+            if (maxValue === null || value > maxValue) {
+                maxValue = value;
+            }
+        }
+    }
+    
+    return {min: minValue, max: maxValue};
+}
+
+/**
+ * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, 24h output averages, and min/max values from shared log data
  * @param {number} logIntervalMinutes - Expected logging interval in minutes (for service uptime calculation)
- * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null}>} All calculations or null if error
+ * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}}>} All calculations or null if error
  */
 async function getLogMetrics24Hours(logIntervalMinutes = null) {
     try {
@@ -265,7 +321,9 @@ async function getLogMetrics24Hours(logIntervalMinutes = null) {
             bsUptime: calculateBSUptime(logEntries),
             serviceUptime: logIntervalMinutes ? calculateServiceUptime(logEntries, logIntervalMinutes) : null,
             clOutputAvg24h: calculateClOutputAverage24h(logEntries),
-            phOutputAvg24h: calculatePhOutputAverage24h(logEntries)
+            phOutputAvg24h: calculatePhOutputAverage24h(logEntries),
+            orpMinMax: calculateORPMinMax24h(logEntries),
+            tempMinMax: calculateTempMinMax24h(logEntries)
         };
     } catch (error) {
         console.error('Error getting heater and uptime metrics:', error);
@@ -275,7 +333,9 @@ async function getLogMetrics24Hours(logIntervalMinutes = null) {
             bsUptime: null,
             serviceUptime: null,
             clOutputAvg24h: null,
-            phOutputAvg24h: null
+            phOutputAvg24h: null,
+            orpMinMax: {min: null, max: null},
+            tempMinMax: {min: null, max: null}
         };
     }
 }
@@ -292,6 +352,8 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateServiceUptime,
         calculateClOutputAverage24h,
         calculatePhOutputAverage24h,
+        calculateORPMinMax24h,
+        calculateTempMinMax24h,
         getLogMetrics24Hours
     };
 }
