@@ -174,22 +174,24 @@ function calculateBSUptime(logEntries) {
  * Calculate BSMon service uptime by comparing actual log entry count to expected count
  * @param {Array<Object>} logEntries - Parsed log entries
  * @param {number} logIntervalMinutes - Expected logging interval in minutes
- * @returns {number|null} Service uptime percentage (0-100) or null if no data
+ * @param {number} days - Number of days of data (defaults to 1)
+ * @returns {number|null} Service uptime percentage or null if no data
  */
-function calculateServiceUptime(logEntries, logIntervalMinutes) {
+function calculateServiceUptime(logEntries, logIntervalMinutes, days = 1) {
     if (!logEntries || logEntries.length === 0 || !logIntervalMinutes) {
         return null;
     }
     
-    // Expected entries in 24 hours = 24 * 60 / interval
-    const expectedEntries = Math.floor((24 * 60) / logIntervalMinutes);
+    // Expected entries = days * 24 hours * 60 minutes / interval
+    const expectedEntries = Math.floor((days * 24 * 60) / logIntervalMinutes);
     const actualEntries = logEntries.length;
     
     if (expectedEntries <= 0) {
         return null;
     }
     
-    const uptime = Math.min(100, (actualEntries / expectedEntries) * 100);
+    // Remove clamp so values >100% are visible
+    const uptime = (actualEntries / expectedEntries) * 100;
     return uptime;
 }
 
@@ -373,7 +375,7 @@ async function getLogMetrics(logIntervalMinutes = null, serverTime = null, days 
             dutyCycle: calculateHeaterDutyCycle(logEntries),
             uptime: calculatePentairUptime(logEntries),
             bsUptime: calculateBSUptime(logEntries),
-            serviceUptime: logIntervalMinutes ? calculateServiceUptime(logEntries, logIntervalMinutes) : null,
+            serviceUptime: logIntervalMinutes ? calculateServiceUptime(logEntries, logIntervalMinutes, days) : null,
             clOutputAvg: calculateClOutputAverage(logEntries),
             phOutputAvg: calculatePhOutputAverage(logEntries),
             orpMinMax: calculateORPMinMax(logEntries),

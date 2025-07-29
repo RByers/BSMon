@@ -8,6 +8,7 @@
 * Avoid functions that are longer than about 50 lines
 * NEVER rely on "adding a small delay" using arbitrary time values, that will be either unreliable or unnecessarily slow tests down.
 * Always look for opportunities to reduce the number of lines of code.
+* Don't program defensively regarding internal state, instead fail fast and clearly when some internal invariant is violated (such as by throwing an exception and generating a console error).
 
 # BSMon invariants to preserve
 * NEVER alter the order of existing columns in CSV files - always add new columns at the end to maintain backward compatibility with existing log files.
