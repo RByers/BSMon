@@ -140,7 +140,21 @@
         
         <!-- Raw Data Section -->
         <section class="raw-data-section">
-            <button id="view-raw-data" class="secondary-button">View Raw Data</button>
+            <div class="section-controls">
+                <div class="time-period-selector">
+                    <div class="segmented-control">
+                        <input type="radio" name="time-period" id="period-1d" value="1" checked>
+                        <label for="period-1d">1d</label>
+                        <input type="radio" name="time-period" id="period-7d" value="7">
+                        <label for="period-7d">7d</label>
+                        <input type="radio" name="time-period" id="period-30d" value="30">
+                        <label for="period-30d">30d</label>
+                    </div>
+                </div>
+                <div class="raw-data-controls">
+                    <button id="view-raw-data" class="secondary-button">View Raw Data</button>
+                </div>
+            </div>
             <div id="raw-data-modal" class="modal hidden">
                 <div class="modal-content">
                     <div class="modal-header">

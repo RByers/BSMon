@@ -4,6 +4,7 @@ function $(id) {
 
 let swRegistration = null;
 let subscription = null;
+let currentTimePeriod = 1; // Default to 1 day
 
 const checkids = ["n-clyout", "n-acidyout", "n-temp"];
 const textids = ["clyout-max", "acidyout-max", "temp-min"];
@@ -262,7 +263,7 @@ async function updateLogMetrics() {
         const logIntervalMinutes = statusData.config.logIntervalMinutes;
         const serverTime = new Date(statusData.currentTime);
         
-        const metrics = await getLogMetrics(logIntervalMinutes, serverTime);
+        const metrics = await getLogMetrics(logIntervalMinutes, serverTime, currentTimePeriod);
         
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
@@ -344,6 +345,34 @@ async function updateLogMetrics() {
     }
 }
 
+// Handle time period selection
+function setupTimePeriodSelector() {
+    const timePeriodRadios = document.querySelectorAll('input[name="time-period"]');
+    
+    // Load saved preference from localStorage
+    const savedPeriod = localStorage.getItem('timePeriod');
+    if (savedPeriod) {
+        currentTimePeriod = parseInt(savedPeriod);
+        const savedRadio = document.querySelector(`input[name="time-period"][value="${currentTimePeriod}"]`);
+        if (savedRadio) {
+            savedRadio.checked = true;
+        }
+    }
+    
+    // Add event listeners to all radio buttons
+    timePeriodRadios.forEach(radio => {
+        radio.addEventListener('change', async function() {
+            if (this.checked) {
+                currentTimePeriod = parseInt(this.value);
+                localStorage.setItem('timePeriod', currentTimePeriod.toString());
+                
+                // Immediately update log metrics with new time period
+                await updateLogMetrics();
+            }
+        });
+    });
+}
+
 // Handle raw data modal
 function setupRawDataModal() {
     const viewRawDataBtn = $('view-raw-data');
@@ -379,6 +408,9 @@ async function init() {
     
     // Fetch initial status
     await fetchStatus();
+    
+    // Setup time period selector
+    setupTimePeriodSelector();
     
     // Fetch initial heater duty cycle and Pentair uptime using shared function
     await updateLogMetrics();

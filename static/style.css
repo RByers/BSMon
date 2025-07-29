@@ -266,10 +266,66 @@ main {
     margin: var(--spacing-unit) 0;
 }
 
-/* Center the button */
-#view-raw-data {
-    display: block;
-    margin: 0 auto;
+/* Section controls layout */
+.section-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-unit);
+    align-items: center;
+    margin-bottom: var(--spacing-unit);
+}
+
+.time-period-selector {
+    text-align: center;
+}
+
+.time-period-selector h3 {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.raw-data-controls {
+    text-align: center;
+}
+
+/* Segmented control styling */
+.segmented-control {
+    display: inline-flex;
+    border: 1px solid var(--primary-color);
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: white;
+}
+
+.segmented-control input[type="radio"] {
+    display: none;
+}
+
+.segmented-control label {
+    padding: 8px 16px;
+    cursor: pointer;
+    background-color: white;
+    color: var(--primary-color);
+    border-right: 1px solid var(--primary-color);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.segmented-control label:last-child {
+    border-right: none;
+}
+
+.segmented-control label:hover {
+    background-color: var(--secondary-color);
+}
+
+.segmented-control input[type="radio"]:checked + label {
+    background-color: var(--primary-color);
+    color: white;
 }
 
 .secondary-button {
@@ -430,6 +486,23 @@ main {
     .control-group {
         justify-content: flex-start;
         gap: 8px;
+    }
+    
+    /* Adjust section controls for mobile */
+    .section-controls {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .time-period-selector h3 {
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+    
+    .segmented-control label {
+        padding: 6px 12px;
+        font-size: 0.8rem;
     }
     
     /* Adjust modal */

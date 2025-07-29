@@ -362,11 +362,12 @@ function calculateTimeSinceLastLog(logEntries, logIntervalMinutes, serverTime) {
  * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, output averages, min/max values, and last log info from shared log data
  * @param {number} logIntervalMinutes - Expected logging interval in minutes (for service uptime calculation)
  * @param {Date} serverTime - Current server time (optional, for accurate last log calculations)
+ * @param {number} days - Number of days of data to fetch (defaults to 1)
  * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg: number|null, phOutputAvg: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}, lastLog: {timeAgo: string, isStale: boolean}}>} All calculations or null if error
  */
-async function getLogMetrics(logIntervalMinutes = null, serverTime = null) {
+async function getLogMetrics(logIntervalMinutes = null, serverTime = null, days = 1) {
     try {
-        const csvData = await fetchLogs();
+        const csvData = await fetchLogs(days);
         const logEntries = parseCSV(csvData);
         return {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
