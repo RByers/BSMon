@@ -93,28 +93,6 @@ main {
     align-items: center;
 }
 
-/* Default positioning */
-.detail-item:nth-child(1) {
-    grid-column: 1;
-    grid-row: 1;
-}
-
-.detail-item:nth-child(2) {
-    grid-column: 2;
-    grid-row: 1;
-}
-
-.detail-item:nth-child(3) {
-    grid-column: 2;
-    grid-row: 2;
-}
-
-/* Output cards - skip position 2,1 instead */
-.output-card .detail-item:nth-child(2) {
-    grid-column: 1;
-    grid-row: 2;
-}
-
 .detail-label {
     color: #666;
     margin-right: 4px;
@@ -124,13 +102,9 @@ main {
     font-weight: 500;
 }
 
-/* Special styling for combined duty cycle display */
-.duty-cycle-combined {
+/* Full width item spans entire row */
+.full-width {
     grid-column: 1 / -1; /* Span full width */
-}
-
-.duty-cycle-combined .detail-value {
-    font-size: 1.1rem;
 }
 
 /* Alarms card */
