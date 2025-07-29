@@ -221,8 +221,8 @@ describe('LogReader', () => {
 
             const result = calculatePentairUptime(logEntries);
 
-            // Total: Skip first (500), so just 100 seconds / 600 seconds time span = 16.67% -> rounds to 17%
-            expect(result).toBe(17);
+            // Total: Skip first (500), so just 100 seconds / 600 seconds time span = 16.67%
+            expect(result).toBeCloseTo(16.67, 2);
         });
 
         it('returns null for empty log entries', () => {
@@ -356,13 +356,13 @@ describe('LogReader', () => {
             expect(result).toBe(85);
         });
 
-        it('rounds decimal percentages correctly', () => {
+        it('calculates decimal percentages correctly', () => {
             const logEntries = [
-                { SuccessCount: 1, TimeoutCount: 2 } // 1/3 = 33.33% -> rounds to 33%
+                { SuccessCount: 1, TimeoutCount: 2 } // 1/3 = 33.33%
             ];
 
             const result = calculateBSUptime(logEntries);
-            expect(result).toBe(33);
+            expect(result).toBeCloseTo(33.33, 2);
         });
 
         it('returns null for empty log entries', () => {
@@ -463,8 +463,8 @@ describe('LogReader', () => {
 
             const result = calculateBSUptime(logEntries);
 
-            // 9999/10000 = 99.99% -> rounds to 100%
-            expect(result).toBe(100);
+            // 9999/10000 = 99.99%
+            expect(result).toBeCloseTo(99.99, 2);
         });
 
         it('processes all entries regardless of other fields', () => {
@@ -475,8 +475,8 @@ describe('LogReader', () => {
 
             const result = calculateBSUptime(logEntries);
 
-            // (50 + 75) / (50 + 50 + 75 + 25) = 125/200 = 62.5% -> rounds to 63%
-            expect(result).toBe(63);
+            // (50 + 75) / (50 + 50 + 75 + 25) = 125/200 = 62.5%
+            expect(result).toBeCloseTo(62.5, 1);
         });
     });
 

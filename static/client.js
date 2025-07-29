@@ -238,10 +238,14 @@ async function fetchRawStatus() {
     }
 }
 
-// Update log metrics (heater duty cycle, Pentair uptime, BS uptime, and 24h output averages) using shared data fetch
+// Update log metrics (heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages) using shared data fetch
 async function updateLogMetrics() {
     try {
-        const metrics = await getLogMetrics24Hours();
+        // Get current status to access log interval
+        const statusData = await fetchStatus();
+        const logIntervalMinutes = statusData?.config?.logIntervalMinutes;
+        
+        const metrics = await getLogMetrics24Hours(logIntervalMinutes);
         
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
@@ -249,14 +253,20 @@ async function updateLogMetrics() {
             $('heater-duty-cycle').textContent = '-';
         }
         
+        if (metrics.serviceUptime !== null) {
+            $('service-uptime').textContent = `${metrics.serviceUptime.toFixed(1)}%`;
+        } else {
+            $('service-uptime').textContent = '-';
+        }
+        
         if (metrics.uptime !== null) {
-            $('pentair-uptime').textContent = `${metrics.uptime}%`;
+            $('pentair-uptime').textContent = `${metrics.uptime.toFixed(1)}%`;
         } else {
             $('pentair-uptime').textContent = '-';
         }
         
         if (metrics.bsUptime !== null) {
-            $('bs-uptime').textContent = `${metrics.bsUptime}%`;
+            $('bs-uptime').textContent = `${metrics.bsUptime.toFixed(1)}%`;
         } else {
             $('bs-uptime').textContent = '-';
         }
@@ -275,6 +285,7 @@ async function updateLogMetrics() {
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
+        $('service-uptime').textContent = '-';
         $('pentair-uptime').textContent = '-';
         $('bs-uptime').textContent = '-';
         $('cl-output-24h-avg').textContent = '-';

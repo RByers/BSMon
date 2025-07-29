@@ -135,7 +135,7 @@ function calculatePentairUptime(logEntries) {
     }
     
     const uptime = (totalPentairSeconds / totalTimeSpanSeconds) * 100;
-    return Math.round(uptime); // Round to whole number
+    return uptime;
 }
 
 /**
@@ -166,7 +166,30 @@ function calculateBSUptime(logEntries) {
     }
     
     const uptime = (totalSuccessCount / totalSamples) * 100;
-    return Math.round(uptime); // Round to whole number
+    return uptime;
+}
+
+/**
+ * Calculate BSMon service uptime by comparing actual log entry count to expected count
+ * @param {Array<Object>} logEntries - Parsed log entries
+ * @param {number} logIntervalMinutes - Expected logging interval in minutes
+ * @returns {number|null} Service uptime percentage (0-100) or null if no data
+ */
+function calculateServiceUptime(logEntries, logIntervalMinutes) {
+    if (!logEntries || logEntries.length === 0 || !logIntervalMinutes) {
+        return null;
+    }
+    
+    // Expected entries in 24 hours = 24 * 60 / interval
+    const expectedEntries = Math.floor((24 * 60) / logIntervalMinutes);
+    const actualEntries = logEntries.length;
+    
+    if (expectedEntries <= 0) {
+        return null;
+    }
+    
+    const uptime = Math.min(100, (actualEntries / expectedEntries) * 100);
+    return uptime;
 }
 
 /**
@@ -228,10 +251,11 @@ function calculatePhOutputAverage24h(logEntries) {
 }
 
 /**
- * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, and 24h output averages from shared log data
- * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null}>} All calculations or null if error
+ * Fetch and calculate heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages from shared log data
+ * @param {number} logIntervalMinutes - Expected logging interval in minutes (for service uptime calculation)
+ * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg24h: number|null, phOutputAvg24h: number|null}>} All calculations or null if error
  */
-async function getLogMetrics24Hours() {
+async function getLogMetrics24Hours(logIntervalMinutes = null) {
     try {
         const csvData = await fetchLast24HoursLogs();
         const logEntries = parseCSV(csvData);
@@ -239,6 +263,7 @@ async function getLogMetrics24Hours() {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
             uptime: calculatePentairUptime(logEntries),
             bsUptime: calculateBSUptime(logEntries),
+            serviceUptime: logIntervalMinutes ? calculateServiceUptime(logEntries, logIntervalMinutes) : null,
             clOutputAvg24h: calculateClOutputAverage24h(logEntries),
             phOutputAvg24h: calculatePhOutputAverage24h(logEntries)
         };
@@ -248,6 +273,7 @@ async function getLogMetrics24Hours() {
             dutyCycle: null,
             uptime: null,
             bsUptime: null,
+            serviceUptime: null,
             clOutputAvg24h: null,
             phOutputAvg24h: null
         };
@@ -263,6 +289,7 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateHeaterDutyCycle,
         calculatePentairUptime,
         calculateBSUptime,
+        calculateServiceUptime,
         calculateClOutputAverage24h,
         calculatePhOutputAverage24h,
         getLogMetrics24Hours

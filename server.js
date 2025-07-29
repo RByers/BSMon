@@ -196,6 +196,11 @@ app.get('/api/status', async (req, res) => {
                 statusData.setpoint = pentairClient.setpoint;
             }
             
+            // Add server configuration
+            statusData.config = {
+                logIntervalMinutes: settings.log_entry_minutes
+            };
+            
             res.json(statusData);
         } finally {
             await client.close();
