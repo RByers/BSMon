@@ -1,8 +1,9 @@
 # TODO
 
+* Update the manifest to be a full web app install using standalone mode. Generate a suitable app icon.
 * Update polling configuration to make it clear that it's for all blusentinel polling, not just the alarms
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
-* Figure out why I am getting "empty response" loading the page from some clients (SW / caching issue?).
+* Remove the raw status endpoint, but preserve the button for having a pretty-prented version of the json status. Add anything missing from the raw status into the json status.
 
 ## Additional test coverage 
 * Extend the pentair client tests to cover the ping and heartbeat behavior to keep the connection alive.

@@ -2,6 +2,18 @@ function $(id) {
     return document.getElementById(id);
 }
 
+function formatDuration(seconds) {
+    if (seconds < 60) {
+        return `${seconds}s`;
+    } else if (seconds < 3600) {
+        const minutes = Math.round(seconds / 60);
+        return `${minutes}m`;
+    } else {
+        const hours = Math.round(seconds / 3600);
+        return `${hours}h`;
+    }
+}
+
 let swRegistration = null;
 let subscription = null;
 let currentTimePeriod = 1; // Default to 1 day
@@ -196,49 +208,63 @@ function updateUI(data) {
         $('page-title-tag').textContent = `BSMon: ${data.system.name}`;
     }
     
-    // Update Alarms
-    if (data.alarmMessages) {
-        const alarmsCard = $('alarms-card');
-        let alarmHtml = '';        
-        
-        if (data.alarmMessages.messages && data.alarmMessages.messages.length > 0) {
-            // Create formatters for date and time
-            const dateFormatter = new Intl.DateTimeFormat('en-US', {
-                month: '2-digit',
-                day: '2-digit'
-            });
-            
-            const timeFormatter = new Intl.DateTimeFormat('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            });
-            
-            data.alarmMessages.messages.forEach(alarm => {
-                // Parse the ISO date string
-                const date = new Date(alarm.rdate);
-                
-                // Format the date and time
-                const formattedDate = dateFormatter.format(date);
-                const formattedTime = timeFormatter.format(date);
-                
-                // Combine them in the desired format
-                const formattedDateTime = `${formattedDate} ${formattedTime}`;
-                
-                alarmHtml += `<div>${alarm.sourceTxt}: ${alarm.msgTxt} [${formattedDateTime}]</div>`;
-            });
-            
-            // Show alarms card and apply active styling
-            alarmsCard.classList.remove('hidden');
-            alarmsCard.classList.add('alarm-active');
-        } else {
-            // Hide alarms card when no alarms
-            alarmsCard.classList.add('hidden');
-            alarmsCard.classList.remove('alarm-active');
-        }
-        
-        $('alarm-messages').innerHTML = alarmHtml;
+    // Update Alarms (including connection status)
+    const alarmsCard = $('alarms-card');
+    let alarmHtml = '';
+    let hasAlarms = false;
+    
+    // Add device connection alarms
+    if (data.bluDowntimeSeconds !== undefined) {
+        alarmHtml += `<div>Connection: BluSentinel down for ${formatDuration(data.bluDowntimeSeconds)}</div>`;
+        hasAlarms = true;
     }
+    
+    if (data.pentairDowntimeSeconds !== undefined) {
+        alarmHtml += `<div>Connection: Pentair down for ${formatDuration(data.pentairDowntimeSeconds)}</div>`;
+        hasAlarms = true;
+    }
+    
+    // Add existing alarm messages
+    if (data.alarmMessages && data.alarmMessages.messages && data.alarmMessages.messages.length > 0) {
+        // Create formatters for date and time
+        const dateFormatter = new Intl.DateTimeFormat('en-US', {
+            month: '2-digit',
+            day: '2-digit'
+        });
+        
+        const timeFormatter = new Intl.DateTimeFormat('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+        
+        data.alarmMessages.messages.forEach(alarm => {
+            // Parse the ISO date string
+            const date = new Date(alarm.rdate);
+            
+            // Format the date and time
+            const formattedDate = dateFormatter.format(date);
+            const formattedTime = timeFormatter.format(date);
+            
+            // Combine them in the desired format
+            const formattedDateTime = `${formattedDate} ${formattedTime}`;
+            
+            alarmHtml += `<div>${alarm.sourceTxt}: ${alarm.msgTxt} [${formattedDateTime}]</div>`;
+        });
+        hasAlarms = true;
+    }
+    
+    if (hasAlarms) {
+        // Show alarms card and apply active styling
+        alarmsCard.classList.remove('hidden');
+        alarmsCard.classList.add('alarm-active');
+    } else {
+        // Hide alarms card when no alarms
+        alarmsCard.classList.add('hidden');
+        alarmsCard.classList.remove('alarm-active');
+    }
+    
+    $('alarm-messages').innerHTML = alarmHtml;
 }
 
 async function fetchStatus() {

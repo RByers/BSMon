@@ -61,10 +61,13 @@ class BSClient {
     #reconnectTimer = null;
     #reconnectAttempts = 0;
     #baseReconnectDelay = 1000; // 1 second
+    #connectionStartTime = null;
+    #disconnectionStartTime = null;
 
     constructor(settings) {
         this.#settings = settings;
         this.#client = this.#settings.use_fake_controller ? new FakeController() : new ModbusRTU();
+        this.#disconnectionStartTime = Date.now(); 
         this.setupConnectionHandlers();
     }
 
@@ -76,6 +79,7 @@ class BSClient {
 
         this.#client.on('close', () => {
             console.log('BluSentinel connection lost, attempting reconnect...');
+            this.#disconnectionStartTime = Date.now();
             this.scheduleReconnect();
         });
 
@@ -118,10 +122,19 @@ class BSClient {
 
         await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
         this.#client.setID(1);
+        this.#connectionStartTime = Date.now();
     }
 
     getConnected() {
         return this.#client.isOpen;
+    }
+
+    getConnectionStatus() {
+        const now = Date.now();
+        if (this.#client.isOpen) {
+            return { bluUptimeSeconds: Math.floor((now - this.#connectionStartTime) / 1000) };
+        } 
+        return { bluDowntimeSeconds: Math.floor((now - this.#disconnectionStartTime) / 1000) };
     }
 
     async close() {

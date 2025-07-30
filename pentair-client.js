@@ -3,6 +3,8 @@ const { v4: uuidv4 } = require('uuid');
 
 class PentairClient {
     #ws = null;
+    #connectionStartTime = null;
+    #disconnectionStartTime = null;
 
     constructor(host, port = 6680, nowFn = () => new Date()) {
         this.host = host;
@@ -18,6 +20,7 @@ class PentairClient {
         this.totalConnectionTime = 0; // in seconds
         this.setpoint = null;
         this.waterTemp = null;
+        this.#disconnectionStartTime = Date.now();
     }
 
     connect() {
@@ -26,6 +29,7 @@ class PentairClient {
 
             const onOpen = () => {
                 this.reconnectDelay = 1000;
+                this.#connectionStartTime = Date.now();
                 this.#updateConnectionState(true);
                 this.heartbeat();
                 this.subscribeToStatus();
@@ -48,6 +52,7 @@ class PentairClient {
 
                 this.#ws.on('close', () => {
                     //console.log('Disconnected from Pentair server');
+                    this.#disconnectionStartTime = Date.now();
                     this.#updateConnectionState(false);
                     this.stopPingTimer();
                     if (!this.#ws) {
@@ -206,6 +211,14 @@ class PentairClient {
 
     isConnected() {
         return this.#ws && this.#ws.readyState === WebSocket.OPEN;
+    }
+
+    getConnectionStatus() {
+        const now = Date.now();
+        if (this.isConnected()) {
+            return { pentairUptimeSeconds: Math.floor((now - this.#connectionStartTime) / 1000) };
+        } 
+        return { pentairDowntimeSeconds: Math.floor((now - this.#disconnectionStartTime) / 1000) };
     }
 
 }

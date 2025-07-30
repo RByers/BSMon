@@ -92,6 +92,29 @@ async function getRegisterSet(client, rs) {
 async function generateRawOutput() {
     let out = '';
     
+    // Connection status
+    if (bsClient) {
+        const bsStatus = bsClient.getConnectionStatus();
+        if (bsStatus.bluUptimeSeconds !== undefined) {
+            out += `BluSentinel: Connected for ${bsStatus.bluUptimeSeconds} seconds\n`;
+        } else {
+            out += `BluSentinel: Disconnected for ${bsStatus.bluDowntimeSeconds} seconds\n`;
+        }
+    }
+    
+    if (pentairClient) {
+        const pentairStatus = pentairClient.getConnectionStatus();
+        if (pentairStatus.pentairUptimeSeconds !== undefined) {
+            out += `Pentair: Connected for ${pentairStatus.pentairUptimeSeconds} seconds\n`;
+        } else {
+            out += `Pentair: Disconnected for ${pentairStatus.pentairDowntimeSeconds} seconds\n`;
+        }
+    } else {
+        out += 'Pentair: Not configured\n';
+    }
+    
+    out += '\n';
+    
     if (bsClient && bsClient.getConnected()) {
         out += 'BluSentinel System: ' + await bsClient.readRegister(Registers.System) + '\n';
         for (const rs in RegisterSets) {
@@ -200,6 +223,14 @@ app.get('/api/status', async (req, res) => {
             statusData.waterTemp = pentairClient.waterTemp;
         }
         
+        // Add connection status
+        if (bsClient) {
+            Object.assign(statusData, bsClient.getConnectionStatus());
+        }
+        if (pentairClient) {
+            Object.assign(statusData, pentairClient.getConnectionStatus());
+        }
+
         // Add server configuration and current time
         statusData.config = {
             logIntervalMinutes: settings.log_entry_minutes
