@@ -58,40 +58,86 @@ function bitsVal(val, bits) {
 class BSClient {
     #client;
     #settings;
-    #connected;
+    #reconnectTimer = null;
+    #reconnectAttempts = 0;
+    #baseReconnectDelay = 1000; // 1 second
 
     constructor(settings) {
         this.#settings = settings;
         this.#client = this.#settings.use_fake_controller ? new FakeController() : new ModbusRTU();
-        this.#connected = false;
+        this.setupConnectionHandlers();
+    }
+
+    setupConnectionHandlers() {
+        if (this.#settings.use_fake_controller) {
+            // FakeController doesn't emit events, skip setup
+            return;
+        }
+
+        this.#client.on('close', () => {
+            console.log('Modbus connection lost, attempting reconnect...');
+            this.scheduleReconnect();
+        });
+
+        this.#client.on('error', (err) => {
+            console.error('Modbus connection error:', err.message);
+        });
+    }
+
+    scheduleReconnect() {
+        if (this.#reconnectTimer) {
+            return; // Already scheduled
+        }
+
+        const delay = Math.max(this.#baseReconnectDelay * Math.pow(2, this.#reconnectAttempts), 10000);
+        console.log(`Scheduling reconnect attempt ${this.#reconnectAttempts + 1} in ${delay}ms`);
+        
+        this.#reconnectTimer = setTimeout(async () => {
+            this.#reconnectTimer = null;
+            this.#reconnectAttempts++;
+            
+            try {
+                await this.connect();
+                console.log('Reconnection successful');
+                this.#reconnectAttempts = 0; // Reset on successful connection
+            } catch (error) {
+                console.error(`Reconnect attempt ${this.#reconnectAttempts} failed:`, error.message);
+                this.scheduleReconnect(); // Schedule next attempt
+            }
+        }, delay);
     }
 
     async connect() {
-        if (this.#connected)
-            throw new Error("BSClient already connected");
-        this.#connected = 'connecting';
+        if (this.#client.isOpen) {
+            return; // Already connected
+        }
+
         try {
             await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
-            this.#connected = true;
             this.#client.setID(1);
         } catch (error) {
-            this.#connected = false;
             throw error;
         }
     }
 
     getConnected() {
-        return this.#connected;
+        return this.#client.isOpen;
     }
 
     async close() {
-        this.#connected = false;
-        await this.#client.close();
+        if (this.#reconnectTimer) {
+            clearTimeout(this.#reconnectTimer);
+            this.#reconnectTimer = null;
+        }
+        this.#reconnectAttempts = 0;
+        if (this.#client.isOpen) {
+            await this.#client.close();
+        }
     }
 
     async readRegister(register) {
-        if (this.#connected != true) {
-            throw new Error("BSClient Not connected");
+        if (!this.#client.isOpen) {
+            throw new Error("BSClient not connected");
         }
         let len = 2;
         let rn = register.reg;

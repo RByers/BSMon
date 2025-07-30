@@ -22,7 +22,8 @@ The main Express.js application server that:
 
 ### 2. BSClient (bs-client.js)
 Modbus TCP client for communicating with the Blu Sentintel pool chemistry controller:
-- Connects to pool controller via Modbus TCP (port 502)
+- Maintains a single persistent connection to pool controller via Modbus TCP (port 502)
+- Automatic reconnection with exponential backoff when connection is lost
 - Reads various register types (Float, ASCII, UInt16, UInt32)
 - Polls periodically to provide structured access to pool chemistry data and system status
 - Fetches alarm data via HTTP from controller's web interface
