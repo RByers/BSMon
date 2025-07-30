@@ -73,18 +73,35 @@ Progressive Web Application with:
 - Raw data modal for detailed system information
 - Responsive design for mobile and desktop
 
+## Device Resilience
+
+The system is designed to handle device connectivity issues gracefully:
+
+**Connection Monitoring**: Both BSClient and PentairClient track connection status and provide `getConnected()` and `isConnected()` methods respectively.
+
+**Resilient Status Endpoints**: Status endpoints (`/api/status`, `/status.txt`) check device connectivity before attempting data collection and return partial data rather than failing completely when devices are offline.
+
+**Continuous Logging**: The Logger continues writing log entries even when devices are offline:
+- When devices are offline for entire logging periods, empty values are written to CSV columns
+- When devices are partially available, averages are computed from successful samples only
+- CSV column order is preserved for backward compatibility with existing log files
+
+**Alarm Processing**: Alarm processing checks device connectivity before attempting to read alarm data, preventing error spam during outages while allowing reconnection attempts to be logged.
+
+**Offline Data Handling**: Consistently uses empty strings for offline device data in CSV logs, with null values from uninitialized Pentair properties handled appropriately.
+
 ## Data Flow
 
 ### 1. Monitoring Loop
 The system operates on multiple overlapping cycles that handle different aspects of data collection and processing:
 
-**Blue Sentinel Polling (60-second cycle)**: The server regularly polls the Blue Sentinel pool controller via Modbus TCP to read chemistry values, system status, and check for new alarm conditions. This polling approach is necessary due to the Modbus protocol's request-response nature.
+**Blue Sentinel Polling (10-second cycle)**: The server regularly polls the Blue Sentinel pool controller via Modbus TCP to read chemistry values, system status, and check for new alarm conditions. If the device is offline, polling is skipped and logged appropriately. This polling approach is necessary due to the Modbus protocol's request-response nature.
 
-**Pentair Real-time Updates**: The Pentair heater system provides real-time status updates through a persistent WebSocket connection. Changes in heater status, temperature setpoints, and water temperature are pushed immediately to the BSMon server without polling, enabling responsive monitoring of heating operations.
+**Pentair Real-time Updates**: The Pentair heater system provides real-time status updates through a persistent WebSocket connection. Changes in heater status, temperature setpoints, and water temperature are pushed immediately to the BSMon server without polling, enabling responsive monitoring of heating operations. When disconnected, the system gracefully handles missing data.
 
-**Periodic Logging (10-minute intervals)**: The Logger accumulates samples from both the Blue Sentinel polling cycles and Pentair real-time updates, computing mean values over the logging period before writing entries to monthly CSV files. This approach provides historical data while smoothing out short-term fluctuations.
+**Periodic Logging (10-minute intervals)**: The Logger accumulates samples from both the Blue Sentinel polling cycles and Pentair real-time updates, computing mean values over the logging period before writing entries to monthly CSV files. **Log entries are always written**, even when devices are offline - offline periods result in empty CSV values while maintaining historical continuity.
 
-**Alarm Processing**: During each Blue Sentinel polling cycle, the system checks for new alarm conditions and sends push notifications to subscribed clients when thresholds are exceeded or new alarm messages are detected.
+**Alarm Processing**: During each Blue Sentinel polling cycle, the system checks device connectivity before processing alarms. If the device is offline, alarm processing is skipped to avoid error spam while reconnection attempts continue in the background.
 
 ## Configuration
 

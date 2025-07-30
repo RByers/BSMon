@@ -68,6 +68,7 @@ function setupLogFile() {
 function makeMockBSClient(registerValueMap) {
   const mockClient = {
     _registerValues: { ...registerValueMap },
+    _connected: true,
     
     readRegister: (register) => {
       const regName = Object.keys(Registers).find(key => Registers[key] === register);
@@ -78,8 +79,16 @@ function makeMockBSClient(registerValueMap) {
       return Promise.resolve(value !== undefined ? value : 0);
     },
     
+    getConnected: () => {
+      return mockClient._connected;
+    },
+    
     updateValues: (newValues) => {
       Object.assign(mockClient._registerValues, newValues);
+    },
+    
+    setConnected: (connected) => {
+      mockClient._connected = connected;
     }
   };
   
@@ -225,6 +234,58 @@ describe('Logger', () => {
     } catch (e) {}
     await advanceTime(11 * 60, logger).catch(() => {});
     expect(mockFs.appendFileSync).not.toHaveBeenCalled();
+  });
+
+  it('writes log entry with empty BS values when device is offline', async () => {
+    const mockClient = makeMockBSClient(createRegisterValues(2));
+    // Simulate device going offline
+    mockClient.setConnected(false);
+    const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
+    
+    await advanceTime(mockSettings.log_entry_minutes * 60, logger);
+    
+    expect(mockFs.appendFileSync).toHaveBeenCalled();
+    expect(logFile.content.length).toBe(2); // Header + data row
+    
+    // Check that log entry was written with empty BS values
+    const csvLine = logFile.content[1];
+    const parts = csvLine.split(',');
+    
+    // Time should be present
+    expect(parts[0]).toBe('1/1/2024 12:10:00');
+    
+    // BS register values should be empty
+    const bsStartIndex = 1; // After Time column
+    for (let i = 0; i < LOGGER_REGISTERS.length; i++) {
+      expect(parts[bsStartIndex + i]).toBe(''); // Empty value
+    }
+    
+    // SuccessCount and TimeoutCount should be 0
+    expect(parts[bsStartIndex + LOGGER_REGISTERS.length]).toBe('0'); // SuccessCount
+    expect(parts[bsStartIndex + LOGGER_REGISTERS.length + 1]).toBe('0'); // TimeoutCount
+  });
+
+  it('writes log entry with mixed data when BS device comes back online mid-period', async () => {
+    const mockClient = makeMockBSClient(createRegisterValues(3));
+    const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
+    
+    // Device online for first half
+    await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
+    
+    // Device goes offline for second half
+    mockClient.setConnected(false);
+    await advanceTime(mockSettings.log_entry_minutes * 60 / 2, logger);
+    
+    expect(mockFs.appendFileSync).toHaveBeenCalled();
+    expect(logFile.content.length).toBe(2); // Header + data row
+    
+    const result = logFile.getLastDataRow();
+    // Should have averages from the successful samples
+    for (const registerName of LOGGER_REGISTERS) {
+      expect(result[registerName]).toBe(3); // Average of successful samples
+    }
+    expect(result.SuccessCount).toBe(30); // Only first half succeeded (5 minutes = 30 polls)
+    expect(result.TimeoutCount).toBe(0);
   });
 
   describe('Pentair Connection Time Tests', () => {
@@ -395,15 +456,44 @@ describe('Logger', () => {
       expect(result.HeaterOnSeconds).toBe(300);
     });
 
-    it('defaults to zero when no PentairClient is set', async () => {
+    it('defaults to empty values when no PentairClient is set', async () => {
       logger = new Logger({ bsClient: testClient, fs: mockFs, settings: mockSettings, nowFn });
       await advanceTime(mockSettings.log_entry_minutes * 60, logger);
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
       const result = logFile.getLastDataRow();
-      expect(result.HeaterOnSeconds).toBe(0);
-      expect(result.setpoint).toBe(0);
-      expect(result.waterTemp).toBe(0);
+      expect(result.HeaterOnSeconds).toBeNaN();
+      expect(result.setpoint).toBeNaN();
+      expect(result.waterTemp).toBeNaN();
+    });
+
+    it('writes empty Pentair values when PentairClient is offline', async () => {
+      // Start with connected Pentair client
+      await advanceTime(1 * 60, logger);
+      
+      // Disconnect Pentair client
+      pentairClient.disconnect();
+      
+      // Advance to log write time
+      await advanceTime(mockSettings.log_entry_minutes * 60 - 60, logger);
+
+      expect(mockFs.appendFileSync).toHaveBeenCalled();
+      
+      // Check that Pentair values are empty in CSV
+      const csvLine = logFile.content[1];
+      const parts = csvLine.split(',');
+      
+      // Find Pentair column indices
+      const heaterOnSecondsIndex = CSV_HEADERS.indexOf('HeaterOnSeconds');
+      const setpointIndex = CSV_HEADERS.indexOf('setpoint');
+      const waterTempIndex = CSV_HEADERS.indexOf('waterTemp');
+      const pentairSecondsIndex = CSV_HEADERS.indexOf('PentairSeconds');
+      
+      // All Pentair values should be empty
+      expect(parts[heaterOnSecondsIndex]).toBe('');
+      expect(parts[setpointIndex]).toBe('');
+      expect(parts[waterTempIndex]).toBe('');
+      expect(parts[pentairSecondsIndex]).toBe('');
     });
 
     it('handles invalid HTMODE values gracefully', async () => {
@@ -441,7 +531,7 @@ describe('Logger', () => {
 
       expect(mockFs.appendFileSync).toHaveBeenCalled();
       const result = logFile.getLastDataRow();
-      expect(result.HeaterOnSeconds).toBe(5 * 60); // Should record time before disconnection
+      expect(result.HeaterOnSeconds).toBeNaN(); // Empty value when disconnected at log write time
     });
 
     it('handles heater state reset between log periods', async () => {

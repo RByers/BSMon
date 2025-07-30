@@ -90,30 +90,41 @@ async function getRegisterSet(client, rs) {
 }
 
 async function generateRawOutput() {
-    let out = 'System: ' + await bsClient.readRegister(Registers.System) + '\n';
-    for (const rs in RegisterSets) {
-        out += rs + ': ' + await getRegisterSet(bsClient, RegisterSets[rs]) + '\n';
+    let out = '';
+    
+    if (bsClient && bsClient.getConnected()) {
+        out += 'BluSentinel System: ' + await bsClient.readRegister(Registers.System) + '\n';
+        for (const rs in RegisterSets) {
+            out += rs + ': ' + await getRegisterSet(bsClient, RegisterSets[rs]) + '\n';
+        }
+
+        for (const r of ['Alarms', 'ClMode', 'PhMode', 'ClError', 'PhError', 'ORPError', 'TempError']) {
+            out += r + ': ' + await bsClient.readRegister(Registers[r]) + '\n';
+        }
+        // It seems Alarm 1 is the meaningful alarm. 2-5 are always set. 
+
+        // Alarms like low chlorine may be here without any indication in the registers.
+        let dataAlarms = await bsClient.getAlarmData();
+        out += `Alarm Messages: ${dataAlarms.alarms}\n`
+        for (const am of dataAlarms.messages) {
+            out += `  ${am.sourceTxt}: ${am.msgTxt} [${am.rdate}]\n`
+        }
+    } else {
+        out += 'BluSentinel device offline\n';
     }
 
-    for (const r of ['Alarms', 'ClMode', 'PhMode', 'ClError', 'PhError', 'ORPError', 'TempError']) {
-        out += r + ': ' + await bsClient.readRegister(Registers[r]) + '\n';
-    }
-    // It seems Alarm 1 is the meaningful alarm. 2-5 are always set. 
-
-    // Alarms like low chlorine may be here without any indication in the registers.
-    let dataAlarms = await bsClient.getAlarmData();
-    out += `Alarm Messages: ${dataAlarms.alarms}\n`
-    for (const am of dataAlarms.messages) {
-        out += `  ${am.sourceTxt}: ${am.msgTxt} [${am.rdate}]\n`
-    }
-
-    out += '\nPentair data:\n';
-    if (pentairClient) {
+    out += '\n';
+    if (pentairClient && pentairClient.isConnected()) {
+        out += 'Pentair data:\n';
         out += `Heater On: ${pentairClient.heaterOn ? 'Yes' : 'No'}\n`;
         out += `Setpoint: ${pentairClient.setpoint}\n`;
         out += `Water Temp: ${pentairClient.waterTemp}\n`;
         out += `Total Heater On Time: ${pentairClient.getCurrentTotalHeaterOnTime()}\n`
         out += `Total Connection Time: ${pentairClient.getCurrentTotalConnectionTime()}\n`;
+    } else if (pentairClient) {
+        out += 'Pentair device offline\n';
+    } else {
+        out += 'No Pentair device configured\n';
     }
 
     return out;
@@ -145,9 +156,11 @@ app.get('/api/status', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
     try {
-        // Gather all data in structured format
-        const statusData = {
-            system: {
+        const statusData = {};
+        
+        // Only include BS data if device is connected
+        if (bsClient && bsClient.getConnected()) {
+            statusData.system = {
                 name: await bsClient.readRegister(Registers.System),
                 clMode: await bsClient.readRegister(Registers.ClMode),
                 phMode: await bsClient.readRegister(Registers.PhMode),
@@ -156,34 +169,35 @@ app.get('/api/status', async (req, res) => {
                 orpError: await bsClient.readRegister(Registers.ORPError),
                 tempError: await bsClient.readRegister(Registers.TempError),
                 alarms: await bsClient.readRegister(Registers.Alarms)
-            },
-            chlorine: {
+            };
+            statusData.chlorine = {
                 value: await bsClient.readRegister(Registers.ClValue),
                 unit: await bsClient.readRegister(Registers.ClUnit),
                 setpoint: await bsClient.readRegister(Registers.ClSet),
                 output: await bsClient.readRegister(Registers.ClYout)
-            },
-            ph: {
+            };
+            statusData.ph = {
                 value: await bsClient.readRegister(Registers.PhValue),
                 unit: await bsClient.readRegister(Registers.PhUnit),
                 setpoint: await bsClient.readRegister(Registers.PhSet),
                 output: await bsClient.readRegister(Registers.PhYout)
-            },
-            orp: {
+            };
+            statusData.orp = {
                 value: await bsClient.readRegister(Registers.ORPValue),
                 unit: await bsClient.readRegister(Registers.ORPUnit)
-            },
-            temperature: {
+            };
+            statusData.temperature = {
                 value: await bsClient.readRegister(Registers.TempValue),
                 unit: await bsClient.readRegister(Registers.TempUnit)
-            }
-        };
-        
-        statusData.alarmMessages = await bsClient.getAlarmData();
+            };
+            statusData.alarmMessages = await bsClient.getAlarmData();
+        }
 
-        if (pentairClient) {
+        // Only include Pentair data if device is connected
+        if (pentairClient && pentairClient.isConnected()) {
             statusData.heaterOn = pentairClient.heaterOn;
             statusData.setpoint = pentairClient.setpoint;
+            statusData.waterTemp = pentairClient.waterTemp;
         }
         
         // Add server configuration and current time
@@ -337,6 +351,10 @@ function stopServer() {
 }
 
 async function checkAlarms() {
+    if (!bsClient.getConnected()) {
+        return;
+    }
+
     let dataAlarms = null;
     try {
         dataAlarms = await bsClient.getAlarmData();

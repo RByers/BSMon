@@ -142,6 +142,10 @@ class Logger {
     }
 
     async #getBSData() {
+        if (!this.#bsClient.getConnected()) {
+            return null;
+        }
+
         let regValues = {};
         for (let r of this.#registersToLog) {
             let val = await this.#bsClient.readRegister(Registers[r]);
@@ -158,28 +162,28 @@ class Logger {
             this.#regAccum[r] += regValues[r];
         }
         this.#accumSamples++;
+        return regValues;
     }
 
     #getPentairData() {
-        let pentairValues = {};
-        if (this.#pentairClient) {
+        if (this.#pentairClient && this.#pentairClient.isConnected()) {
             const currentTotal = this.#pentairClient.getCurrentTotalHeaterOnTime();
-            pentairValues['HeaterOnSeconds'] = currentTotal - this.#lastHeaterOnTime;
-            this.#lastHeaterOnTime = currentTotal;
-            
             const currentConnectionTotal = this.#pentairClient.getCurrentTotalConnectionTime();
-            pentairValues['PentairSeconds'] = currentConnectionTotal - this.#lastConnectionTime;
+            
+            const pentairValues = {
+                'HeaterOnSeconds': currentTotal - this.#lastHeaterOnTime,
+                'PentairSeconds': currentConnectionTotal - this.#lastConnectionTime,
+                'setpoint': this.#pentairClient.setpoint,
+                'waterTemp': this.#pentairClient.waterTemp
+            };
+            
+            this.#lastHeaterOnTime = currentTotal;
             this.#lastConnectionTime = currentConnectionTotal;
             
-            pentairValues['setpoint'] = this.#pentairClient.setpoint || 0;
-            pentairValues['waterTemp'] = this.#pentairClient.waterTemp || 0;
+            return pentairValues;
         } else {
-            pentairValues['HeaterOnSeconds'] = 0;
-            pentairValues['setpoint'] = 0;
-            pentairValues['waterTemp'] = 0;
-            pentairValues['PentairSeconds'] = 0;
+            return null;
         }
-        return pentairValues;
     }
 
     async updateLog() {
@@ -188,11 +192,6 @@ class Logger {
         // If it's been log_entry_minutes since the last log entry, write a new one
        const now = this.#nowFn();
         if (now - this.#lastLogEntry >= this.#settings.log_entry_minutes * 60 * 1000) {
-            if (this.#accumSamples === 0) {
-                // All samples failed, so we can't write a log entry.
-                this.#lastLogEntry = now;
-                return;
-            }
             // Compute a logfile name for the month and year
             const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
             const pentairData = this.#getPentairData();
@@ -208,16 +207,32 @@ class Logger {
             const zeroPad = (num) => String(num).padStart(2, '0')
             out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` +
                 `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
+            
+            // Write BS register values - use averages if we have samples, empty strings if not
             for (let r of this.#registersToLog) {
-                out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
+                if (this.#accumSamples > 0) {
+                    out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
+                } else {
+                    out += ',';  // Empty value
+                }
             }
             out += `,${this.#accumSamples},${this.#timeoutCount}`;
+            
+            // Write Pentair values - use empty strings for numeric values when offline
             for (let r of this.#pentairFieldsToLog) {
-                let val = pentairData[r] || 0;
-                if (typeof val === 'string') {
-                    val = parseFloat(val);
+                if (pentairData === null) {
+                    out += ',';  // Empty value when device offline
+                } else {
+                    let val = pentairData[r];
+                    if (val === null) {
+                        out += ',';
+                    } else {
+                        if (typeof val === 'string') {
+                            val = parseFloat(val);
+                        }
+                        out += ',' + val.toFixed(0);
+                    }
                 }
-                out += ',' + val.toFixed(0);
             }
             out += '\n';
             this.#fs.appendFileSync(logFileName, out);
