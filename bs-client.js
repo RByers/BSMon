@@ -70,9 +70,14 @@ class BSClient {
         if (this.#connected)
             throw new Error("BSClient already connected");
         this.#connected = 'connecting';
-        await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
-        this.#connected = true;
-        this.#client.setID(1);
+        try {
+            await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
+            this.#connected = true;
+            this.#client.setID(1);
+        } catch (error) {
+            this.#connected = false;
+            throw error;
+        }
     }
 
     getConnected() {
