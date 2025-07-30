@@ -75,12 +75,12 @@ class BSClient {
         }
 
         this.#client.on('close', () => {
-            console.log('Modbus connection lost, attempting reconnect...');
+            console.log('BluSentinel connection lost, attempting reconnect...');
             this.scheduleReconnect();
         });
 
         this.#client.on('error', (err) => {
-            console.error('Modbus connection error:', err.message);
+            console.error('BluSentinel connection error:', err.message);
         });
     }
 
@@ -98,10 +98,10 @@ class BSClient {
             
             try {
                 await this.connect();
-                console.log('Reconnection successful');
+                console.log('BluSentinel reconnection successful');
                 this.#reconnectAttempts = 0; // Reset on successful connection
             } catch (error) {
-                console.error(`Reconnect attempt ${this.#reconnectAttempts} failed:`, error.message);
+                console.error(`BluSentinel reconnect attempt ${this.#reconnectAttempts} failed:`, error.message);
                 this.scheduleReconnect(); // Schedule next attempt
             }
         }, delay);
@@ -116,6 +116,7 @@ class BSClient {
             await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
             this.#client.setID(1);
         } catch (error) {
+            scheduleReconnect();
             throw error;
         }
     }

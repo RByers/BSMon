@@ -407,14 +407,22 @@ async function checkAlarms() {
     }
 }
 
+let inPoll = false;
 async function pollDevices() {
     try {
+        if (inPoll) {
+            console.warn("Already polling, skipping this cycle");
+            return;
+        }
+        inPoll = true;
         await checkAlarms();
         await logger.updateLog();
     } catch (err) {
         console.error("pollDevices error:", err.message);
         console.error(err.stack || err);
         logger.incrementTimeoutCount();
+    } finally {
+        inPoll = false;
     }
 }
 
