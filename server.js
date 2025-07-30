@@ -430,11 +430,8 @@ async function pollDevices() {
 if (require.main === module) {
     bsClient = new BSClient(settings);
     
-    bsClient.connect().then(() => {
-        console.log(`BluSentinel connection to ${settings.bshost} established`);
-    }).catch((err) => {
-        console.error('Failed to establish initial BSClient connection:', err.message);
-    });
+    // Start connection management - this will handle initial connection and all reconnections
+    bsClient.scheduleReconnect();
     
     if (settings.pentair_host) {
         pentairClient = new PentairClient(settings.pentair_host);

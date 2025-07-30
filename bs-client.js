@@ -89,8 +89,8 @@ class BSClient {
             return; // Already scheduled
         }
 
-        const delay = Math.max(this.#baseReconnectDelay * Math.pow(2, this.#reconnectAttempts), 10000);
-        console.log(`Scheduling reconnect attempt ${this.#reconnectAttempts + 1} in ${delay}ms`);
+        // Start with no delay
+        const delay = Math.min(this.#baseReconnectDelay * this.#reconnectAttempts, 60000);
         
         this.#reconnectTimer = setTimeout(async () => {
             this.#reconnectTimer = null;
@@ -98,7 +98,7 @@ class BSClient {
             
             try {
                 await this.connect();
-                console.log('BluSentinel reconnection successful');
+                console.log('BluSentinel connection successful');
                 this.#reconnectAttempts = 0; // Reset on successful connection
             } catch (error) {
                 console.error(`BluSentinel reconnect attempt ${this.#reconnectAttempts} failed:`, error.message);
@@ -107,18 +107,17 @@ class BSClient {
         }, delay);
     }
 
+    /**
+     * Attempts to connect to the BluSentinel controller.
+     * @throws {Error} Connection error if unable to connect
+     */
     async connect() {
         if (this.#client.isOpen) {
             return; // Already connected
         }
 
-        try {
-            await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
-            this.#client.setID(1);
-        } catch (error) {
-            scheduleReconnect();
-            throw error;
-        }
+        await this.#client.connectTCP(this.#settings.bshost, { port: 502 });
+        this.#client.setID(1);
     }
 
     getConnected() {
