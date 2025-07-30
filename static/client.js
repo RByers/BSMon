@@ -145,6 +145,10 @@ function updateUI(data) {
         $('cl-value').textContent = `${data.chlorine.value.toFixed(2)} ${data.chlorine.unit}`;
         $('cl-setpoint').textContent = `${data.chlorine.setpoint.toFixed(1)} ${data.chlorine.unit}`;
         $('cl-output').textContent = `${data.chlorine.output.toFixed(1)}%`;
+    } else {
+        $('cl-value').textContent = '-';
+        $('cl-setpoint').textContent = '-';
+        $('cl-output').textContent = '-';
     }
     
     // Update pH card
@@ -152,27 +156,40 @@ function updateUI(data) {
         $('ph-value').textContent = `${data.ph.value.toFixed(2)} ${data.ph.unit}`;
         $('ph-setpoint').textContent = `${data.ph.setpoint.toFixed(1)} ${data.ph.unit}`;
         $('ph-output').textContent = `${data.ph.output.toFixed(1)}%`;
+    } else {
+        $('ph-value').textContent = '-';
+        $('ph-setpoint').textContent = '-';
+        $('ph-output').textContent = '-';
     }
     
     // Update ORP card
     if (data.orp) {
         $('orp-value').textContent = `${data.orp.value.toFixed(0)} ${data.orp.unit}`;
+    } else {
+        $('orp-value').textContent = '-';
     }
     
     // Update Temperature card
     if (data.temperature) {
         $('temp-value').textContent = `${data.temperature.value.toFixed(1)} ${data.temperature.unit}`;
+    } else {
+        $('temp-value').textContent = '-';
     }
 
     // Update Heater card
     if (data.hasOwnProperty('heaterOn')) {
         $('heater-status').textContent = data.heaterOn ? 'On' : 'Off';
         
-        if (data.setpoint) {
-            $('heater-setpoint').textContent = `${data.setpoint}°F`;
-        }
+    } else {
+        $('heater-status').textContent = '-';
     }
-    
+
+    if (data.setpoint) {
+        $('heater-setpoint').textContent = `${data.setpoint}°F`;
+    } else {
+        $('heater-setpoint').textContent = '-';
+    }
+
     // Update Page Title with System Name
     if (data.system && data.system.name) {
         $('page-title').textContent = `BSMon: ${data.system.name}`;
@@ -400,12 +417,6 @@ function setupRawDataModal() {
 }
 
 async function init() {
-    // Show loading state
-    $('cl-value').textContent = "Loading...";
-    $('ph-value').textContent = "Loading...";
-    $('orp-value').textContent = "Loading...";
-    $('temp-value').textContent = "Loading...";
-    
     // Fetch initial status
     await fetchStatus();
     
