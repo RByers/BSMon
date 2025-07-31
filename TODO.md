@@ -1,6 +1,5 @@
 # TODO
 
-* Update the manifest to be a full web app install using standalone mode. Generate a suitable app icon.
 * Update polling configuration to make it clear that it's for all blusentinel polling, not just the alarms
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 * Remove the raw status endpoint, but preserve the button for having a pretty-prented version of the json status. Add anything missing from the raw status into the json status.

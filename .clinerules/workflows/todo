@@ -1,4 +1,4 @@
-- Find the $ARGUMENTS item on the todo list in TODO.md
+- Read the first item on the todo list in TODO.md
 - Design a plan for solving it
 - Once the user agrees and switches to act mode, iterate on the solution until it is complete, clean, adds any appropriate new tests and passes all tests.
 - Then remove the item from the TODO list, propose a commit message for the work and stop, letting the user review and modify changes before committing.

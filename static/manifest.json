@@ -1,3 +1,28 @@
 {
-    "name": "BSMon"
+  "name": "BSMon - Pool Chemical Monitor",
+  "short_name": "BSMon",
+  "description": "Monitor Blu-Sentinel pool chemical controllers with real-time alerts for chlorine, pH, ORP, temperature, and heater status",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2196F3",
+  "background_color": "#ffffff",
+  "categories": ["utilities", "monitoring"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ]
 }
