@@ -110,7 +110,7 @@ The system operates on multiple overlapping cycles that handle different aspects
 - **bshost**: Pool controller IP address
 - **pentair_host**: Pentair heater IP address (optional)
 - **vapid_***: WebPush VAPID keys for notifications
-- **alarm_poll_seconds**: Device polling interval (default: 60)
+- **blusentinel_poll_seconds**: BluSentinel device polling interval controlling both alarms and data logging (default: 10)
 - **log_entry_minutes**: Logging interval (default: 10)
 - **tls_***: Optional TLS certificate files for HTTPS
 - **use_fake_controller**: Enable fake controller for testing

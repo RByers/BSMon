@@ -495,7 +495,7 @@ if (require.main === module) {
     logger = new Logger({ bsClient, pentairClient });
 
     startServer();
-    setInterval(() => pollDevices(), settings.alarm_poll_seconds * 1000);
+    setInterval(() => pollDevices(), settings.blusentinel_poll_seconds * 1000);
     
     // Graceful shutdown
     process.on('SIGINT', async () => {

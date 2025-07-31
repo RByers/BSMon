@@ -10,7 +10,7 @@ const mockFs = {
 
 const mockSettings = {
   log_entry_minutes: 10,
-  alarm_poll_seconds: 10
+  blusentinel_poll_seconds: 10
 };
 
 // Constants and helpers for register value creation
@@ -104,7 +104,7 @@ describe('Logger', () => {
   // works in the main app. Throws exceptions on error.
   // Note: this will early-out when an error occurs, only advancing time up to the point of first error
   const advanceTime = async (seconds, logger) => {
-    const pollInterval = mockSettings.alarm_poll_seconds;
+    const pollInterval = mockSettings.blusentinel_poll_seconds;
     const totalSteps = Math.ceil(seconds / pollInterval);
     
     for (let step = 0; step < totalSteps; step++) {

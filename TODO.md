@@ -1,8 +1,8 @@
 # TODO
 
-* Update polling configuration to make it clear that it's for all blusentinel polling, not just the alarms
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 * Remove the raw status endpoint, but preserve the button for having a pretty-prented version of the json status. Add anything missing from the raw status into the json status.
+* Add better error handling to the client in the case of connections to the server failing. The UI should update to show an alarm saying connections to the server have failed.
 
 ## Additional test coverage 
 * Extend the pentair client tests to cover the ping and heartbeat behavior to keep the connection alive.
