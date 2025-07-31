@@ -9,10 +9,7 @@
 * Review the BSclient testing, is using a mock bsclient good enough or should I be using the fake controller? Or perhaps we should create a mock bs server (just like the pentair one) that exposes just a TCP server. Perhaps these can be used for test development as well.
 
 ## Log reader updates
-* Provide the logging interval setting from the server to the client via the status endpoint
-* Compute missing logging data by comparing log timestamps to the logging interval setting and use that to generate a bsmon service uptime figure added to the uptime card.
 * Make tapping on the uptime card show a graph over time for al three lines.
-* Provide a UI switch to toggle between 24h, 7d and 30d historical modes and update the log endpoint to support all three. 
 * Make tapping on any other card show a graph of that data over time according to the current historical mode.
 
 ## UI explorations
