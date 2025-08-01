@@ -1,7 +1,5 @@
 # TODO
 
-* Add bsmon servwr uptime to the ststus endpoint
-* Change the uptimes card to have three rows, bsmon, blusentinel and pentair. The left column should keep the percentage stat we have now, but the right column should have tines like "Up 4d" or "Down 2m". For bsmon itself just say "down" when down since we have no good way to know when the server went down. When "down" make it red.
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 * Remove the raw status endpoint, but preserve the button for having a pretty-prented version of the json status. Add anything missing from the raw status into the json status.
 * Add better error handling to the client in the case of connections to the server failing. The UI should update to show an alarm saying connections to the server have failed.

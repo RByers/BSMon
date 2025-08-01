@@ -367,15 +367,15 @@ function calculateTimeSinceLastLog(logEntries, logIntervalMinutes, serverTime) {
  * @param {number} days - Number of days of data to fetch (defaults to 1)
  * @returns {Promise<{dutyCycle: number|null, uptime: number|null, bsUptime: number|null, serviceUptime: number|null, clOutputAvg: number|null, phOutputAvg: number|null, orpMinMax: {min: number|null, max: number|null}, tempMinMax: {min: number|null, max: number|null}, lastLog: {timeAgo: string, isStale: boolean}}>} All calculations or null if error
  */
-async function getLogMetrics(logIntervalMinutes = null, serverTime = null, days = 1) {
+async function getLogMetrics(logIntervalMinutes, serverTime, days = 1) {
     try {
         const csvData = await fetchLogs(days);
         const logEntries = parseCSV(csvData);
         return {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
-            uptime: calculatePentairUptime(logEntries),
+            pentairUptime: calculatePentairUptime(logEntries),
             bsUptime: calculateBSUptime(logEntries),
-            serviceUptime: logIntervalMinutes ? calculateServiceUptime(logEntries, logIntervalMinutes, days) : null,
+            serviceUptime: calculateServiceUptime(logEntries, logIntervalMinutes, days),
             clOutputAvg: calculateClOutputAverage(logEntries),
             phOutputAvg: calculatePhOutputAverage(logEntries),
             orpMinMax: calculateORPMinMax(logEntries),
@@ -386,7 +386,7 @@ async function getLogMetrics(logIntervalMinutes = null, serverTime = null, days 
         console.error('Error getting heater and uptime metrics:', error);
         return {
             dutyCycle: null,
-            uptime: null,
+            pentairUptime: null,
             bsUptime: null,
             serviceUptime: null,
             clOutputAvg: null,

@@ -112,6 +112,11 @@ main {
     color: var(--error-color) !important;
 }
 
+.down-status {
+    color: var(--error-color) !important;
+    font-weight: 600;
+}
+
 /* Alarms card */
 .alarms {
     grid-column: 1 / -1; /* Make alarms span full width */

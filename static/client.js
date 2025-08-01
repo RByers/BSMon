@@ -115,19 +115,36 @@ async function initNotifyButtion() {
     }
 }
 
-// Helper function to update uptime values with low-uptime styling
-function updateUptimeValue(elementId, value) {
+// Helper function to update uptime percentage (left column)
+function updateUptimePercentage(elementId, percentage) {
     const element = $(elementId);
-    if (value !== null) {
-        element.textContent = `${value.toFixed(1)}%`;
-        if (value < 95) {
-            element.classList.add('low-uptime');
+    if (typeof(percentage) === 'number') {
+        element.textContent = `${percentage.toFixed(1)}%`;
+        if (percentage < 95) {
+            element.classList.add('down-status');
         } else {
-            element.classList.remove('low-uptime');
+            element.classList.remove('down-status');
         }
     } else {
+        element.textContent = `-`;
+        element.classList.remove('down-status');
+    }
+}
+
+// Helper function to update uptime status (right column)
+function updateUptimeStatus(elementId, uptimeSeconds, downtimeSeconds) {
+    const element = $(elementId);
+    if (uptimeSeconds !== undefined) {
+        element.textContent = `Up ${formatDuration(uptimeSeconds)}`;
+        element.classList.remove('down-status');
+    } else if (downtimeSeconds !== undefined) {
+        element.textContent = 'Down';
+        if (downtimeSeconds > 0)
+            element.textContent += ` ${formatDuration(downtimeSeconds)}`;
+        element.classList.add('down-status');
+    } else {
         element.textContent = '-';
-        element.classList.remove('low-uptime');
+        element.classList.remove('down-status');
     }
 }
 
@@ -314,9 +331,15 @@ async function updateLogMetrics() {
             $('heater-duty-cycle').textContent = '-';
         }
         
-        updateUptimeValue('service-uptime', metrics.serviceUptime);
-        updateUptimeValue('pentair-uptime', metrics.uptime);
-        updateUptimeValue('bs-uptime', metrics.bsUptime);
+        // Update uptime percentages (left column) from log metrics
+        updateUptimePercentage('bsmon-pct', metrics.serviceUptime);
+        updateUptimePercentage('bs-pct', metrics.bsUptime);
+        updateUptimePercentage('pentair-pct', metrics.pentairUptime);
+        
+        // Update uptime status (right column) from status API
+        updateUptimeStatus('bsmon-status', statusData.bsmonUptimeSeconds, null);
+        updateUptimeStatus('bs-status', statusData.bluUptimeSeconds, statusData.bluDowntimeSeconds);
+        updateUptimeStatus('pentair-status', statusData.pentairUptimeSeconds, statusData.pentairDowntimeSeconds);
         
         if (metrics.clOutputAvg !== null) {
             $('cl-output-avg').textContent = `${metrics.clOutputAvg.toFixed(1)}%`;
@@ -356,35 +379,22 @@ async function updateLogMetrics() {
             $('temp-max').textContent = '-';
         }
         
-        // Update Last log time
-        if (metrics.lastLog) {
-            const lastLogElement = $('last-log-time');
-            lastLogElement.textContent = metrics.lastLog.timeAgo;
-            if (metrics.lastLog.isStale) {
-                lastLogElement.classList.add('low-uptime');
-            } else {
-                lastLogElement.classList.remove('low-uptime');
-            }
-        } else {
-            const lastLogElement = $('last-log-time');
-            lastLogElement.textContent = '-';
-            lastLogElement.classList.remove('low-uptime');
-        }
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
-        updateUptimeValue('service-uptime', null);
-        updateUptimeValue('pentair-uptime', null);
-        updateUptimeValue('bs-uptime', null);
+        // Update uptime displays to show error state
+        updateUptimePercentage('bsmon-pct', 'BSMon', null);
+        updateUptimePercentage('bs-pct', 'BluSentinel', null);
+        updateUptimePercentage('pentair-pct', 'Pentair', null);
+        updateUptimeStatus('bsmon-status', null, -1); // BSMon is down if we can't get metrics
+        updateUptimeStatus('bs-status', null, null);
+        updateUptimeStatus('pentair-status', null, null);
         $('cl-output-avg').textContent = '-';
         $('ph-output-avg').textContent = '-';
         $('orp-min').textContent = '-';
         $('orp-max').textContent = '-';
         $('temp-min').textContent = '-';
         $('temp-max').textContent = '-';
-        const lastLogElement = $('last-log-time');
-        lastLogElement.textContent = 'Error';
-        lastLogElement.classList.add('low-uptime');
     }
 }
 

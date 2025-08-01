@@ -20,6 +20,7 @@ let bsClient = null;
 let pentairClient = null;
 let logger = null;
 let lastAlarmDate = null;
+let serverStartTime = Date.now(); // Track when the server started
 
 // Map of endpoint strings to objects with the following properties:
 //  'subscription': The subscription object used directly by WebPush
@@ -230,6 +231,9 @@ app.get('/api/status', async (req, res) => {
         if (pentairClient) {
             Object.assign(statusData, pentairClient.getConnectionStatus());
         }
+
+        // Add server uptime
+        statusData.bsmonUptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
 
         // Add server configuration and current time
         statusData.config = {
