@@ -16,8 +16,8 @@ const chartConfigs = {
             { label: 'Output', dataField: 'ClYout', yAxis: 'y1', color: 'rgba(54, 162, 235, 1)' }
         ],
         yAxes: {
-            y: { title: 'ppm', position: 'left' },
-            y1: { title: 'Output %', position: 'right' }
+            y: { title: 'ppm', position: 'left', min: 2 },
+            y1: { title: 'Output %', position: 'right', min: 0, max: 50 }
         }
     },
     chartPh: {
@@ -28,8 +28,8 @@ const chartConfigs = {
             { label: 'Output', dataField: 'PhYout', yAxis: 'y1', color: 'rgba(255, 205, 86, 1)' }
         ],
         yAxes: {
-            y: { title: 'pH', position: 'left' },
-            y1: { title: 'Output %', position: 'right' }
+            y: { title: 'pH', position: 'left', min: 7.2 },
+            y1: { title: 'Output %', position: 'right', min: 0, max: 5 }
         }
     }
 };
@@ -586,6 +586,8 @@ function renderChart(viewName, logEntries) {
             type: 'linear',
             display: true,
             position: axisConfig.position,
+            suggestedMin: axisConfig.min,
+            suggestedMax: axisConfig.max,
             title: {
                 display: true,
                 text: axisConfig.title
