@@ -7,6 +7,33 @@ let serverURL = '/';
 const checkids = ["n-clyout", "n-acidyout", "n-temp"];
 const textids = ["clyout-max", "acidyout-max", "temp-min"];
 
+const chartConfigs = {
+    chartCl: {
+        title: 'Chlorine Data',
+        datasets: [
+            { label: 'Chlorine Value', dataField: 'ClValue', yAxis: 'y', color: 'rgba(75, 192, 192, 1)' },
+            { label: 'Setpoint', dataField: 'ClSet', yAxis: 'y', color: 'rgba(255, 99, 132, 1)' },
+            { label: 'Output', dataField: 'ClYout', yAxis: 'y1', color: 'rgba(54, 162, 235, 1)' }
+        ],
+        yAxes: {
+            y: { title: 'ppm', position: 'left' },
+            y1: { title: 'Output %', position: 'right' }
+        }
+    },
+    chartPh: {
+        title: 'pH Data',
+        datasets: [
+            { label: 'pH Value', dataField: 'PhValue', yAxis: 'y', color: 'rgba(153, 102, 255, 1)' },
+            { label: 'Setpoint', dataField: 'PhSet', yAxis: 'y', color: 'rgba(255, 159, 64, 1)' },
+            { label: 'Output', dataField: 'PhYout', yAxis: 'y1', color: 'rgba(255, 205, 86, 1)' }
+        ],
+        yAxes: {
+            y: { title: 'pH', position: 'left' },
+            y1: { title: 'Output %', position: 'right' }
+        }
+    }
+};
+
 function $(id) {
     return document.getElementById(id);
 }
@@ -469,14 +496,19 @@ function setupTimePeriodSelector() {
     });
 }
 
-// Handle raw data modal
+// Handle chart modal
 function setupChartModal() {
     const chlorineCard = $('chlorine-card');
+    const phCard = $('ph-card');
     const closeBtn = $('close-chart');
     const chartModal = $('chart-modal');
 
     chlorineCard.onclick = () => {
         setView('chartCl');
+    };
+
+    phCard.onclick = () => {
+        setView('chartPh');
     };
 
     closeBtn.onclick = () => {
@@ -504,88 +536,78 @@ function isChartVisible() {
     return chartModal && !chartModal.classList.contains('hidden');
 }
 
-function renderChart(metrics) {
-    if (!metrics || !metrics.logEntries) return;
+function renderChart(viewName, logEntries) {
+    if (!logEntries) return;
+    
+    const config = chartConfigs[viewName];
+    if (!config) {
+        console.error(`Unknown chart view: ${viewName}`);
+        return;
+    }
+
+    // Set the modal title
+    $('chart-title').textContent = config.title;
 
     const pointRadius = currentTimePeriod === 1 ? 3 : 0;
-    const clValueData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClValue}));
-    const clSetData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClSet}));
-    const clYoutData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClYout}));
+    
+    // Process datasets using config
+    const chartDatasets = config.datasets.map(dataset => ({
+        label: dataset.label,
+        data: logEntries.map(entry => ({x: new Date(entry.Time), y: entry[dataset.dataField]})),
+        borderColor: dataset.color,
+        backgroundColor: dataset.color.replace('1)', '0.2)'),
+        yAxisID: dataset.yAxis,
+        borderWidth: 2,
+        pointRadius: pointRadius
+    }));
 
-    const ctx = $('chlorine-chart').getContext('2d');
+    const ctx = $('chart-canvas').getContext('2d');
     if (chart) {
         chart.destroy();
     }
+    
+    // Build scales from config
+    const scales = {
+        x: {
+            type: 'time',
+            time: {
+                unit: currentTimePeriod === 1 ? 'hour' : 'day',
+                displayFormats: {
+                    hour: 'h a',
+                    day: 'MMM d'
+                }
+            }
+        }
+    };
+    
+    // Add y-axes from config
+    Object.entries(config.yAxes).forEach(([axisId, axisConfig]) => {
+        scales[axisId] = {
+            type: 'linear',
+            display: true,
+            position: axisConfig.position,
+            title: {
+                display: true,
+                text: axisConfig.title
+            }
+        };
+        
+        // Add grid config for right axis
+        if (axisConfig.position === 'right') {
+            scales[axisId].grid = {
+                drawOnChartArea: false
+            };
+        }
+    });
+
     chart = new Chart(ctx, {
         type: 'line',
         data: {
-            datasets: [
-                {
-                    label: 'Chlorine Value',
-                    data: clValueData,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    yAxisID: 'y',
-                    borderWidth: 2,
-                    pointRadius: pointRadius,
-                },
-                {
-                    label: 'Setpoint',
-                    data: clSetData,
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    yAxisID: 'y',
-                    borderWidth: 2,
-                    pointRadius: pointRadius,
-                },
-                {
-                    label: 'Output',
-                    data: clYoutData,
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    yAxisID: 'y1',
-                    borderWidth: 2,
-                    pointRadius: pointRadius,
-                }
-            ]
+            datasets: chartDatasets
         },
         options: {
             responsive: true,
-            scales: {
-                x: {
-                    type: 'time',
-                    time: {
-                        unit: currentTimePeriod === 1 ? 'hour' : 'day',
-                        displayFormats: {
-                            hour: 'h a',
-                            day: 'MMM d'
-                        }
-                    }
-                },
-                y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    min: 0,
-                    title: {
-                        display: true,
-                        text: 'ppm'
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    min: 0,
-                    grid: {
-                        drawOnChartArea: false, 
-                    },
-                    title: {
-                        display: true,
-                        text: 'Output %'
-                    }
-                },
-            }
+            scales: scales
         }
     });
 }
@@ -642,7 +664,10 @@ async function init() {
     // Add event listener for automatic chart updates when log metrics are updated
     window.addEventListener('logMetricsUpdated', (event) => {
         if (isChartVisible()) {
-            renderChart(event.detail.metrics);
+            const currentView = getUrlHashParams().get('view');
+            if (currentView && chartConfigs[currentView]) {
+                renderChart(currentView, event.detail.metrics.logEntries);
+            }
         }
     });
 
@@ -692,7 +717,8 @@ function handleHashChange(event = null) {
     const view = params.get('view');
     const chartModal = $('chart-modal');
     
-    if (view === 'chartCl') {
+    // Check if view is a chart view using config
+    if (view && chartConfigs[view]) {
         chartModal.classList.remove('hidden');
 
         let oldView;
@@ -703,7 +729,7 @@ function handleHashChange(event = null) {
         }
 
         if (oldView !== view) {
-            renderChart(lastMetrics);
+            renderChart(view, lastMetrics?.logEntries);
         }
     } else {
         chartModal.classList.add('hidden');

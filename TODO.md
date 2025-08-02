@@ -1,5 +1,6 @@
 # TODO
 
+* For 30d charts there are too many data points, making it look very noisy. Reduce these to one point ever 2 hours in the data series. Average all the values over a 2 hour period, and if there are none skip the point entirely. 
 * Update the pentair reconnection behavior to follow the simpler pattern in bsclient which also ensures that we are resillient to the device being down on server start.
 * Replace the fake controller infrastructure with a mock blusentinel class which implements the modbus TCP protocol, as we did for pentair. Update tests to use this, taking care to address any timing issues the same way we did for the pentair tests. This should simplify the bsclient code, removing lines of code there, in exchange for adding a new class in the tests. Pull register definitions from the bsclient code instead of duplicating them (refactoring if necessary).
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
