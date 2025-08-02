@@ -376,6 +376,12 @@ main {
     max-height: 90%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+}
+
+/* Chart modal specific styling */
+#chart-modal .modal-content {
+    min-height: 0; /* Allow flex item to shrink below content size */
 }
 
 .modal-header {
@@ -384,6 +390,7 @@ main {
     align-items: center;
     padding: var(--spacing-unit);
     border-bottom: 1px solid #eee;
+    flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 .modal-header h2 {
@@ -418,6 +425,12 @@ main {
 
 #chlorine-chart {
     padding: var(--spacing-unit);
+    max-width: 100%;
+    max-height: 70vh;
+    width: 100%;
+    height: auto;
+    flex: 1;
+    min-height: 0; /* Allow canvas to shrink */
 }
 
 /* Mobile responsiveness */
@@ -524,5 +537,11 @@ main {
     .raw-status {
         max-height: 50vh;
         font-size: 0.8rem;
+    }
+    
+    /* Adjust chart canvas for mobile */
+    #chlorine-chart {
+        max-height: 60vh;
+        padding: 8px;
     }
 }
