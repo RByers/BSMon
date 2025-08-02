@@ -42,6 +42,18 @@ const chartConfigs = {
             y: { title: 'ORP (mV)', position: 'left', min: 400 },
             y1: { title: 'pH', position: 'right', min: 7.2, max: 8.0 }
         }
+    },
+    chartHeater: {
+        title: 'Heater Data',
+        datasets: [
+            { label: 'Temperature', dataField: 'TempValue', yAxis: 'y', color: 'rgba(54, 162, 235, 1)' },
+            { label: 'Setpoint', dataField: 'setpoint', yAxis: 'y', color: 'rgba(255, 99, 132, 1)' },
+            { label: 'Duty Cycle', dataField: 'DutyCycle', yAxis: 'y1', color: 'rgba(255, 159, 64, 1)' }
+        ],
+        yAxes: {
+            y: { title: 'Temperature (°F)', position: 'left', hardMin: 60 },
+            y1: { title: 'Duty Cycle (%)', position: 'right', min: 0, max: 200 }
+        }
     }
 };
 
@@ -498,31 +510,32 @@ function setupTimePeriodSelector() {
 
 // Handle chart modal
 function setupChartModal() {
-    const chlorineCard = $('chlorine-card');
-    const phCard = $('ph-card');
-    const orpCard = $('orp-card');
-    const closeBtn = $('close-chart');
-    const chartModal = $('chart-modal');
-
-    chlorineCard.onclick = () => {
+    $('chlorine-card').onclick = () => {
         setView('chartCl');
     };
 
-    phCard.onclick = () => {
+    $('ph-card').onclick = () => {
         setView('chartPh');
     };
 
-    orpCard.onclick = () => {
+    $('orp-card').onclick = () => {
         setView('chartOrp');
     };
 
-    closeBtn.onclick = () => {
+    $('temp-card').onclick = () => {
+        setView('chartHeater');
+    };
+    $('heater-card').onclick = () => {
+        setView('chartHeater');
+    };
+
+    $('close-chart').onclick = () => {
         setView(null);
     };
 
     // Close chart modal when clicking outside of it (scrim click)
-    chartModal.onclick = function(event) {
-        if (event.target === chartModal) {
+    $('chart-modal').onclick = function(event) {
+        if (event.target === $('chart-modal')) {
             setView(null);
         }
     };
@@ -552,18 +565,27 @@ function renderChart(viewName, logEntries) {
 
     // Set the modal title
     $('chart-title').textContent = config.title;
-
-    const pointRadius = currentTimePeriod === 1 ? 3 : 0;
     
     // Process datasets using config
     const chartDatasets = config.datasets.map(dataset => ({
         label: dataset.label,
-        data: logEntries.map(entry => ({x: new Date(entry.Time), y: entry[dataset.dataField]})),
+        data: logEntries.map(entry => {
+            let yValue;
+            if (dataset.dataField === 'DutyCycle') {
+                // Calculate duty cycle from HeaterOnSeconds and PentairSeconds
+                const heaterSeconds = entry.HeaterOnSeconds || 0;
+                const pentairSeconds = entry.PentairSeconds || 0;
+                yValue = pentairSeconds > 0 ? (heaterSeconds / pentairSeconds) * 100 : 0;
+            } else {
+                yValue = entry[dataset.dataField];
+            }
+            return {x: new Date(entry.Time), y: yValue};
+        }),
         borderColor: dataset.color,
         backgroundColor: dataset.color.replace('1)', '0.2)'),
         yAxisID: dataset.yAxis,
         borderWidth: 2,
-        pointRadius: pointRadius
+        pointRadius: 0
     }));
 
     const ctx = $('chart-canvas').getContext('2d');
@@ -591,6 +613,7 @@ function renderChart(viewName, logEntries) {
             type: 'linear',
             display: true,
             position: axisConfig.position,
+            min: axisConfig.hardMin,
             suggestedMin: axisConfig.min,
             suggestedMax: axisConfig.max,
             title: {
