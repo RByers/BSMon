@@ -4,7 +4,7 @@ function $(id) {
 
 // Enable easy client-only testing without redeploying the server.
 // This is especially useful for testing logic that depends on having full logs.
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = new URLSearchParams(window.location.hash.substring(1));
 let serverURL = '/';
 if (window.location.protocol === 'file:' && urlParams.has('serverHost')) {
     const serverHost = urlParams.get('serverHost');
