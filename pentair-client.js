@@ -59,7 +59,13 @@ class PentairClient {
                         // Disconnected intentionally
                         return;
                     }
-                    this.reconnectTimeout = setTimeout(() => this.connect(), this.reconnectDelay);
+                    this.reconnectTimeout = setTimeout(async () => {
+                        try {
+                            await this.connect();
+                        } catch (error) {
+                            console.error('Pentair reconnection failed:', error.message);
+                        }
+                    }, this.reconnectDelay);
                     this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000);
                 });
 

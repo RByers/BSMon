@@ -394,7 +394,8 @@ async function checkAlarms() {
     try {
         dataAlarms = await bsClient.getAlarmData();
     } catch(err) {
-        if (err.cause && err.cause.code === 'UND_ERR_CONNECT_TIMEOUT') {
+        if ((err.cause && err.cause.code === 'UND_ERR_CONNECT_TIMEOUT') || 
+            err.message === 'fetch failed') {
             logger.incrementTimeoutCount();
             return;
         } else {
