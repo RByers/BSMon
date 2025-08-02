@@ -1,6 +1,11 @@
 const { Registers } = require('./bs-client');
 
 class Logger {
+    // Data reduction constants
+    static REDUCTION_THRESHOLD_DAYS = 14;
+    static REDUCTION_BUCKET_HOURS = 2;
+    static SUMMED_FIELDS = ['SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'PentairSeconds'];
+
     #fs;
     #settings;
     #nowFn;
@@ -94,17 +99,29 @@ class Logger {
         return etag ? `"${etag}"` : '"empty"';
     }
 
-    getHistoricalCSV(startTime, endTime) {
+    getHistoricalCSV(startTime, endTime, bucketHours = null) {
         const filesToCheck = this.getLogFilesForTimeRange(startTime, endTime);
-        
         const header = this.#generateCSVHeader();
+        const dayRange = (endTime - startTime) / (1000 * 60 * 60 * 24);
+        const bucketMs = bucketHours ? bucketHours * 60 * 60 * 1000 : null;
+
         const lines = [header];
+        let currentBucket = null;
+        let currentBucketStart = null;
+        const headerFields = header.split(',');
         
+        // Single file reading loop - shared between both modes
         for (const fileName of filesToCheck) {
             if (this.#fs.existsSync(fileName)) {
                 try {
                     const content = this.#fs.readFileSync(fileName, 'utf8');
                     const fileLines = content.split('\n');
+                    
+                    // Get the actual file header (first line)
+                    let fileHeaderFields = null;
+                    if (fileLines.length > 0) {
+                        fileHeaderFields = fileLines[0].split(',');
+                    }
                     
                     for (let i = 1; i < fileLines.length; i++) { // Skip header (line 0)
                         const line = fileLines[i].trim();
@@ -119,7 +136,29 @@ class Logger {
                         
                         // Check if timestamp is within time range
                         if (timestamp >= startTime && timestamp <= endTime) {
-                            lines.push(line);
+                            if (bucketMs) {
+                                const bucketStart = Math.floor(timestamp.getTime() / bucketMs) * bucketMs;
+                                
+                                // If we've moved to a new bucket, finalize the current one
+                                if (currentBucket && bucketStart !== currentBucketStart) {
+                                    lines.push(this.#bucketToCSVLine(currentBucket, headerFields));
+                                    currentBucket = null;
+                                }
+                                
+                                // Initialize or add to current bucket
+                                if (!currentBucket) {
+                                    currentBucket = {
+                                        values: {},
+                                        counts: {}
+                                    };
+                                    currentBucketStart = bucketStart;
+                                }
+                                
+                                currentBucket.timestamp = timestamp;
+                                this.#addLineToBucket(currentBucket, line, fileHeaderFields);
+                            } else {
+                                lines.push(line);
+                            }
                         }
                     }
                 } catch (error) {
@@ -128,7 +167,67 @@ class Logger {
             }
         }
         
+        // Don't forget the final bucket!
+        if (currentBucket) {
+            lines.push(this.#bucketToCSVLine(currentBucket, headerFields));
+        }
+        
         return lines.join('\n') + '\n';
+    }
+
+    #addLineToBucket(bucket, line, headerFields) {
+        const values = line.split(',');
+        
+        // Aggregate each field (skip Time column at index 0)
+        for (let j = 1; j < Math.min(values.length, headerFields.length); j++) {
+            const fieldName = headerFields[j];
+            const valueStr = values[j];
+            
+            // Skip empty values
+            if (!valueStr || valueStr.trim() === '') {
+                continue;
+            }
+            
+            const value = parseFloat(valueStr);
+            if (!isNaN(value)) {
+                if (!bucket.values[fieldName]) {
+                    bucket.values[fieldName] = 0;
+                    bucket.counts[fieldName] = 0;
+                }
+                bucket.values[fieldName] += value;
+                bucket.counts[fieldName]++;
+            }
+        }
+    }
+
+    #bucketToCSVLine(bucket, headerFields) {
+        const values = [this.#formatTimestamp(bucket.timestamp)];
+        
+        for (let j = 1; j < headerFields.length; j++) {
+            const fieldName = headerFields[j];
+            
+            if (bucket.values[fieldName] !== undefined && bucket.counts[fieldName] > 0) {
+                if (Logger.SUMMED_FIELDS.includes(fieldName)) {
+                    // Sum the values
+                    values.push(bucket.values[fieldName].toFixed(0));
+                } else {
+                    // Average the values
+                    const avg = bucket.values[fieldName] / bucket.counts[fieldName];
+                    values.push(avg.toFixed(2));
+                }
+            } else {
+                values.push(''); // Empty value when no data
+            }
+        }
+        
+        return values.join(',');
+    }
+
+    // TODO: why do we need this? Can't we share code with whatever mechanism put the timestamp into the log in the first placce?
+    #formatTimestamp(date) {
+        const zeroPad = (num) => String(num).padStart(2, '0');
+        return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
+               `${date.getHours()}:${zeroPad(date.getMinutes())}:${zeroPad(date.getSeconds())}`;
     }
 
     getLast24HoursCSV(nowFn = () => new Date()) {

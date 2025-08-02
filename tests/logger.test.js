@@ -829,4 +829,190 @@ describe('Logger', () => {
       expect(lines[2]).toBe('2/1/2024 6:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600');
     });
   });
+
+  describe('Data Reduction Tests', () => {
+    let mockFs;
+    let logger;
+
+    beforeEach(() => {
+      mockFs = {
+        existsSync: jest.fn(),
+        readFileSync: jest.fn()
+      };
+      logger = new Logger({ fs: mockFs });
+    });
+
+    it('applies 2-hour data reduction when bucketHours parameter is provided', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+        '1/1/2024 10:00:00,2.0,7.2,10,1,300\n' +
+        '1/1/2024 10:30:00,2.2,7.3,12,0,350\n' +
+        '1/1/2024 11:00:00,2.4,7.1,8,2,280\n' +
+        '1/1/2024 12:15:00,3.0,7.4,15,1,400\n' +
+        '1/1/2024 12:45:00,2.8,7.5,13,0,380\n'
+      );
+
+      const startTime = new Date('2024-01-01T10:00:00');
+      const endTime = new Date('2024-01-01T13:00:00');
+      const result = logger.getHistoricalCSV(startTime, endTime, 2); // 2-hour buckets
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      expect(lines).toHaveLength(3); // Header + 2 buckets (10-12, 12-14)
+
+      // Check bucket timestamps (last timestamp in each bucket)
+      expect(lines[1]).toContain('1/1/2024 10:30:00'); // Last timestamp in 9:00-11:00 bucket  
+      expect(lines[2]).toContain('1/1/2024 12:45:00'); // Last timestamp in 11:00-13:00 bucket
+    });
+
+    it('averages sensor values and sums duration/count fields correctly', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+        '1/1/2024 10:00:00,2.0,7.2,10,1,300\n' +
+        '1/1/2024 10:30:00,4.0,7.8,20,3,600\n'
+      );
+
+      const startTime = new Date('2024-01-01T10:00:00');
+      const endTime = new Date('2024-01-01T11:00:00');
+      const result = logger.getHistoricalCSV(startTime, endTime, 1); // 1-hour bucket
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      const dataLine = lines[1].split(',');
+
+      // Averaged fields (ClValue: (2.0 + 4.0) / 2 = 3.0, PhValue: (7.2 + 7.8) / 2 = 7.5)
+      expect(parseFloat(dataLine[1])).toBeCloseTo(3.0, 2); // ClValue
+      expect(parseFloat(dataLine[2])).toBeCloseTo(7.5, 2); // PhValue
+
+      // Summed fields (SuccessCount: 10 + 20 = 30, TimeoutCount: 1 + 3 = 4, HeaterOnSeconds: 300 + 600 = 900)
+      expect(parseInt(dataLine[9])).toBe(30);  // SuccessCount
+      expect(parseInt(dataLine[10])).toBe(4);  // TimeoutCount
+      expect(parseInt(dataLine[11])).toBe(900); // HeaterOnSeconds
+    });
+
+    it('skips empty periods with no data points', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+        '1/1/2024 10:00:00,2.0,7.2,10,1,300\n' +
+        '1/1/2024 14:00:00,3.0,7.4,15,2,400\n' // 4-hour gap
+      );
+
+      const startTime = new Date('2024-01-01T10:00:00');
+      const endTime = new Date('2024-01-01T15:00:00');
+      const result = logger.getHistoricalCSV(startTime, endTime, 2); // 2-hour buckets
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      expect(lines).toHaveLength(3); // Header + 2 buckets (10-12, 14-16), skipping 12-14
+
+      expect(lines[1]).toContain('1/1/2024 10:00:00'); // First bucket (only 10:00:00 in 10-12 range)
+      expect(lines[2]).toContain('1/1/2024 14:00:00'); // Second bucket (only 14:00:00 in 14-16 range)
+    });
+
+    it('handles empty values in data correctly', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+        '1/1/2024 10:00:00,2.0,,10,1,\n' +
+        '1/1/2024 10:30:00,,7.8,20,,600\n'
+      );
+
+      const startTime = new Date('2024-01-01T10:00:00');
+      const endTime = new Date('2024-01-01T11:00:00');
+      const result = logger.getHistoricalCSV(startTime, endTime, 1); // 1-hour bucket
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      const dataLine = lines[1].split(',');
+
+      // ClValue: only first entry has value (2.0)
+      expect(parseFloat(dataLine[1])).toBeCloseTo(2.0, 2);
+      // PhValue: only second entry has value (7.8)
+      expect(parseFloat(dataLine[2])).toBeCloseTo(7.8, 2);
+      // SuccessCount: both entries have values (10 + 20 = 30)
+      expect(parseInt(dataLine[9])).toBe(30);
+      // TimeoutCount: only first entry has value (1)
+      expect(parseInt(dataLine[10])).toBe(1);
+      // HeaterOnSeconds: only second entry has value (600)
+      expect(parseInt(dataLine[11])).toBe(600);
+    });
+
+    it('returns full resolution data when bucketHours is null', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+        '1/1/2024 10:00:00,2.0,7.2,10,1,300\n' +
+        '1/1/2024 10:30:00,2.2,7.3,12,0,350\n' +
+        '1/1/2024 11:00:00,2.4,7.1,8,2,280\n'
+      );
+
+      const startTime = new Date('2024-01-01T10:00:00');
+      const endTime = new Date('2024-01-01T12:00:00');
+      const result = logger.getHistoricalCSV(startTime, endTime); // No bucketHours = no reduction
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      expect(lines).toHaveLength(4); // Header + 3 original data points
+
+      expect(lines[1]).toContain('1/1/2024 10:00:00');
+      expect(lines[2]).toContain('1/1/2024 10:30:00');
+      expect(lines[3]).toContain('1/1/2024 11:00:00');
+    });
+
+    it('handles multiple log files with data reduction', () => {
+      mockFs.existsSync.mockImplementation((filename) => {
+        return filename === 'static/log-2024-1.csv' || filename === 'static/log-2024-2.csv';
+      });
+
+      mockFs.readFileSync.mockImplementation((filename) => {
+        if (filename === 'static/log-2024-1.csv') {
+          return 'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+                 '1/31/2024 22:00:00,2.0,7.2,10,1,300\n' +
+                 '1/31/2024 23:30:00,2.4,7.4,12,0,320\n';
+        } else if (filename === 'static/log-2024-2.csv') {
+          return 'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
+                 '2/1/2024 0:30:00,2.8,7.6,15,2,400\n' +
+                 '2/1/2024 2:15:00,3.0,7.8,18,1,450\n';
+        }
+      });
+
+      const startTime = new Date('2024-01-31T22:00:00');
+      const endTime = new Date('2024-02-01T03:00:00');
+      const result = logger.getHistoricalCSV(startTime, endTime, 2); // 2-hour buckets
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      expect(lines).toHaveLength(4); // Header + 3 buckets (22-00, 00-02, 02-04)
+
+      // Check that data from both files is included and properly aggregated  
+      expect(lines[1]).toContain('1/31/2024 22:00:00'); // Last timestamp in 22:00-00:00 bucket
+      expect(lines[2]).toContain('2/1/2024 0:30:00');   // Last timestamp in 00:00-02:00 bucket
+      expect(lines[3]).toContain('2/1/2024 2:15:00');   // Last timestamp in 02:00-04:00 bucket
+    });
+
+    it('handles very small bucket sizes for testing', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        'Time,ClValue,PhValue\n' +
+        '1/1/2024 10:00:00,1.0,7.0\n' +
+        '1/1/2024 10:05:00,2.0,7.2\n' +
+        '1/1/2024 10:10:00,3.0,7.4\n' +
+        '1/1/2024 10:15:00,4.0,7.6\n'
+      );
+
+      const startTime = new Date('2024-01-01T10:00:00');
+      const endTime = new Date('2024-01-01T10:20:00');
+      const result = logger.getHistoricalCSV(startTime, endTime, 1/6); // 10-minute buckets
+
+      const lines = result.split('\n').filter(line => line.trim() !== '');
+      expect(lines).toHaveLength(3); // Header + 2 buckets (10:00-10:10, 10:10-10:20)
+
+      // First bucket: average of 1.0 and 2.0
+      const firstBucket = lines[1].split(',');
+      expect(parseFloat(firstBucket[1])).toBeCloseTo(1.5, 2);
+      expect(parseFloat(firstBucket[2])).toBeCloseTo(7.1, 2);
+
+      // Second bucket: average of 3.0 and 4.0
+      const secondBucket = lines[2].split(',');
+      expect(parseFloat(secondBucket[1])).toBeCloseTo(3.5, 2);
+      expect(parseFloat(secondBucket[2])).toBeCloseTo(7.5, 2);
+    });
+  });
 });
