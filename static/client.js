@@ -473,6 +473,7 @@ function renderChart(metrics) {
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     yAxisID: 'y',
+                    borderWidth: 2,
                     pointRadius: pointRadius,
                 },
                 {
@@ -481,6 +482,7 @@ function renderChart(metrics) {
                     borderColor: 'rgba(255, 99, 132, 1)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
                     yAxisID: 'y',
+                    borderWidth: 2,
                     pointRadius: pointRadius,
                 },
                 {
@@ -489,6 +491,7 @@ function renderChart(metrics) {
                     borderColor: 'rgba(54, 162, 235, 1)',
                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
                     yAxisID: 'y1',
+                    borderWidth: 2,
                     pointRadius: pointRadius,
                 }
             ]
@@ -497,7 +500,7 @@ function renderChart(metrics) {
             responsive: true,
             scales: {
                 x: {
-                    type: 'timeseries',
+                    type: 'time',
                     time: {
                         unit: currentTimePeriod === 1 ? 'hour' : 'day',
                         displayFormats: {
@@ -510,6 +513,7 @@ function renderChart(metrics) {
                     type: 'linear',
                     display: true,
                     position: 'left',
+                    min: 0,
                     title: {
                         display: true,
                         text: 'ppm'
@@ -519,6 +523,7 @@ function renderChart(metrics) {
                     type: 'linear',
                     display: true,
                     position: 'right',
+                    min: 0,
                     grid: {
                         drawOnChartArea: false, 
                     },
