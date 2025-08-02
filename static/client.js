@@ -448,6 +448,7 @@ function setupChartModal() {
 function renderChart(metrics) {
     if (!metrics || !metrics.logEntries) return;
 
+    const pointRadius = currentTimePeriod === 1 ? 3 : 0;
     const clValueData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClValue}));
     const clSetData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClSet}));
     const clYoutData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClYout}));
@@ -466,6 +467,7 @@ function renderChart(metrics) {
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     yAxisID: 'y',
+                    pointRadius: pointRadius,
                 },
                 {
                     label: 'Setpoint',
@@ -473,6 +475,7 @@ function renderChart(metrics) {
                     borderColor: 'rgba(255, 99, 132, 1)',
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
                     yAxisID: 'y',
+                    pointRadius: pointRadius,
                 },
                 {
                     label: 'Output',
@@ -480,6 +483,7 @@ function renderChart(metrics) {
                     borderColor: 'rgba(54, 162, 235, 1)',
                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
                     yAxisID: 'y1',
+                    pointRadius: pointRadius,
                 }
             ]
         },
