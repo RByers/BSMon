@@ -180,6 +180,16 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>Chlorine Data</h2>
+                    <div class="chart-time-period-selector">
+                        <div class="segmented-control">
+                            <input type="radio" name="chart-time-period" id="chart-period-1d" value="1" checked>
+                            <label for="chart-period-1d">1d</label>
+                            <input type="radio" name="chart-time-period" id="chart-period-7d" value="7">
+                            <label for="chart-period-7d">7d</label>
+                            <input type="radio" name="chart-time-period" id="chart-period-30d" value="30">
+                            <label for="chart-period-30d">30d</label>
+                        </div>
+                    </div>
                     <button id="close-chart" class="close-button">&times;</button>
                 </div>
                 <canvas id="chlorine-chart"></canvas>

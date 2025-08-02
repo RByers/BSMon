@@ -393,6 +393,12 @@ main {
     flex-shrink: 0; /* Prevent header from shrinking */
 }
 
+.chart-time-period-selector {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
 .modal-header h2 {
     margin: 0;
     color: var(--primary-color);

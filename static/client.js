@@ -324,7 +324,12 @@ async function fetchStatus() {
 
 // Update log metrics (heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages) using shared data fetch
 let lastMetrics = null;
+let updating = false;
 async function updateLogMetrics() {
+    if (updating) {
+        return; // Prevent concurrent updates
+    }
+    updating = true;
     try {
         // Get current status to access log interval and server time
         const statusData = await fetchStatus();
@@ -333,11 +338,6 @@ async function updateLogMetrics() {
         
         const metrics = await getLogMetrics(logIntervalMinutes, serverTime, currentTimePeriod);
         lastMetrics = metrics;
-        
-        // Dispatch event to notify UI components of data update
-        window.dispatchEvent(new CustomEvent('logMetricsUpdated', { 
-            detail: { metrics: lastMetrics } 
-        }));
         
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
@@ -397,6 +397,11 @@ async function updateLogMetrics() {
             $('temp-max').textContent = '-';
         }
         
+        // Dispatch event to notify UI components of data update
+        window.dispatchEvent(new CustomEvent('logMetricsUpdated', { 
+            detail: { metrics: lastMetrics } 
+        }));        
+
     } catch (error) {
         console.error('Error updating heater and uptime metrics:', error);
         $('heater-duty-cycle').textContent = '-';
@@ -413,23 +418,52 @@ async function updateLogMetrics() {
         $('orp-max').textContent = '-';
         $('temp-min').textContent = '-';
         $('temp-max').textContent = '-';
-    }
+    } 
+    updating = false;
 }
 
 // Handle time period selection
 function setupTimePeriodSelector() {
-    const timePeriodRadios = document.querySelectorAll('input[name="time-period"]');
+    const mainTimePeriodRadios = document.querySelectorAll('input[name="time-period"]');
+    const chartTimePeriodRadios = document.querySelectorAll('input[name="chart-time-period"]');
     
-    // Add event listeners to all radio buttons
-    timePeriodRadios.forEach(radio => {
+    // Function to sync selectors when time period changes
+    async function handleTimePeriodChange(newTimePeriod) {
+        if (newTimePeriod === currentTimePeriod) {
+            return;
+        }
+        currentTimePeriod = newTimePeriod;
+        setUrlHashParams({days: currentTimePeriod});
+        
+        // Sync both selectors
+        syncTimePeriodSelectors();
+        
+        // Immediately update log metrics with new time period
+        await updateLogMetrics();
+    }
+    
+    // Function to keep both selectors synchronized
+    function syncTimePeriodSelectors() {
+        const allRadios = [...mainTimePeriodRadios, ...chartTimePeriodRadios];
+        allRadios.forEach(radio => {
+            radio.checked = parseInt(radio.value) === currentTimePeriod;
+        });
+    }
+    
+    // Add event listeners to main view radio buttons
+    mainTimePeriodRadios.forEach(radio => {
         radio.addEventListener('change', async function() {
             if (this.checked) {
-                currentTimePeriod = parseInt(this.value);
-                
-                setUrlHashParams({days: currentTimePeriod});
-                
-                // Immediately update log metrics with new time period
-                await updateLogMetrics();
+                await handleTimePeriodChange(parseInt(this.value));
+            }
+        });
+    });
+    
+    // Add event listeners to chart modal radio buttons
+    chartTimePeriodRadios.forEach(radio => {
+        radio.addEventListener('change', async function() {
+            if (this.checked) {
+                await handleTimePeriodChange(parseInt(this.value));
             }
         });
     });
@@ -651,15 +685,26 @@ async function init() {
     setInterval(updateLogMetrics, 15 * 60 * 1000);
 }
 
-function handleHashChange() {
+function handleHashChange(event = null) {
     const params = getUrlHashParams();
     
     // Handle 'view' parameter
     const view = params.get('view');
     const chartModal = $('chart-modal');
+    
     if (view === 'chartCl') {
         chartModal.classList.remove('hidden');
-        renderChart(lastMetrics);
+
+        let oldView;
+        if (event) {
+            const oldUrl = new URL(event.oldURL);
+            const oldParams = new URLSearchParams(oldUrl.hash.substring(1));
+            oldView = oldParams.get('view');
+        }
+
+        if (oldView !== view) {
+            renderChart(lastMetrics);
+        }
     } else {
         chartModal.classList.add('hidden');
     }
@@ -668,6 +713,7 @@ function handleHashChange() {
     const days = params.get('days');
     if (days) {
         currentTimePeriod = parseInt(days);
+        // The other radio should change automtically due to the change event
         const radio = document.querySelector(`input[name="time-period"][value="${currentTimePeriod}"]`);
         if (radio) {
             radio.checked = true;
