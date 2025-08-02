@@ -372,6 +372,7 @@ async function getLogMetrics(logIntervalMinutes, serverTime, days = 1) {
         const csvData = await fetchLogs(days);
         const logEntries = parseCSV(csvData);
         return {
+            logEntries: logEntries,
             dutyCycle: calculateHeaterDutyCycle(logEntries),
             pentairUptime: calculatePentairUptime(logEntries),
             bsUptime: calculateBSUptime(logEntries),
@@ -385,6 +386,7 @@ async function getLogMetrics(logIntervalMinutes, serverTime, days = 1) {
     } catch (error) {
         console.error('Error getting heater and uptime metrics:', error);
         return {
+            logEntries: [],
             dutyCycle: null,
             pentairUptime: null,
             bsUptime: null,

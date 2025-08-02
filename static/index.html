@@ -8,6 +8,8 @@
     <title id="page-title-tag">BSMon</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha256-DiMmxoaAcr7BWSdgxnKQQ8ruopYKK0bO5qIZKqxqv/A=" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" integrity="sha256-6nqzDSbDjc8fLSa7Q+c6lFN7WPGQb1XhpUbdCTIbVhU=" crossorigin="anonymous" defer></script>
 </head>
 <body>
     <header>
@@ -173,6 +175,16 @@
                 </div>
             </div>
         </section>
+
+        <div id="chart-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Chlorine Data</h2>
+                    <button id="close-chart" class="close-button">&times;</button>
+                </div>
+                <canvas id="chlorine-chart"></canvas>
+            </div>
+        </div>
         
         <!-- Notification Settings Section -->
         <section class="settings-panel">
@@ -223,7 +235,7 @@
         </section>
     </main>
     
-    <script src="client.js"></script>
-    <script src="logreader.js"></script>
+    <script src="logreader.js" defer></script>
+    <script src="client.js" defer></script>
 </body>
 </html>

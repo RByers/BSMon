@@ -27,6 +27,7 @@ function formatDuration(seconds) {
 let swRegistration = null;
 let subscription = null;
 let currentTimePeriod = 1; // Default to 1 day
+let chart = null;
 
 const checkids = ["n-clyout", "n-acidyout", "n-temp"];
 const textids = ["clyout-max", "acidyout-max", "temp-min"];
@@ -306,6 +307,7 @@ async function fetchStatus() {
 }
 
 // Update log metrics (heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages) using shared data fetch
+let lastMetrics = null;
 async function updateLogMetrics() {
     try {
         // Get current status to access log interval and server time
@@ -314,6 +316,7 @@ async function updateLogMetrics() {
         const serverTime = new Date(statusData.system.currentTime);
         
         const metrics = await getLogMetrics(logIntervalMinutes, serverTime, currentTimePeriod);
+        lastMetrics = metrics;
         
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
@@ -421,6 +424,104 @@ function setupTimePeriodSelector() {
 }
 
 // Handle raw data modal
+function setupChartModal() {
+    const chlorineCard = $('chlorine-card');
+    const modal = $('chart-modal');
+    const closeBtn = $('close-chart');
+
+    chlorineCard.onclick = () => {
+        modal.classList.remove('hidden');
+        renderChart(lastMetrics);
+    };
+
+    closeBtn.onclick = () => {
+        modal.classList.add('hidden');
+    };
+
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.classList.add('hidden');
+        }
+    };
+}
+
+function renderChart(metrics) {
+    if (!metrics || !metrics.logEntries) return;
+
+    const clValueData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClValue}));
+    const clSetData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClSet}));
+    const clYoutData = metrics.logEntries.map(entry => ({x: new Date(entry.Time), y: entry.ClYout}));
+
+    const ctx = $('chlorine-chart').getContext('2d');
+    if (chart) {
+        chart.destroy();
+    }
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Chlorine Value',
+                    data: clValueData,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'Setpoint',
+                    data: clSetData,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'Output',
+                    data: clYoutData,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    yAxisID: 'y1',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'timeseries',
+                    time: {
+                        unit: currentTimePeriod === 1 ? 'hour' : 'day',
+                        displayFormats: {
+                            hour: 'h a',
+                            day: 'MMM d'
+                        }
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'ppm'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false, 
+                    },
+                    title: {
+                        display: true,
+                        text: 'Output %'
+                    }
+                },
+            }
+        }
+    });
+}
+
 function setupRawDataModal() {
     const viewRawDataBtn = $('view-raw-data');
     const closeRawDataBtn = $('close-raw-data');
@@ -462,6 +563,7 @@ async function init() {
     
     // Setup raw data modal
     setupRawDataModal();
+    setupChartModal();
 
     // Initialize service worker and notification settings
     if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {

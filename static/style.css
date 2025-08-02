@@ -63,6 +63,7 @@ main {
     border-radius: var(--border-radius);
     padding: var(--spacing-unit);
     box-shadow: var(--card-shadow);
+    cursor: pointer;
 }
 
 .metric-card h2 {
@@ -413,6 +414,10 @@ main {
     font-family: monospace;
     font-size: 0.9rem;
     line-height: 1.4;
+}
+
+#chlorine-chart {
+    padding: var(--spacing-unit);
 }
 
 /* Mobile responsiveness */
