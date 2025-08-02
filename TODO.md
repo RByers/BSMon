@@ -1,7 +1,6 @@
 # TODO
 
-* Remove the heartbeat/ping behavior from the pentair client but preserve the auto-reconnection behavior. Update the reconnection behavior to follow the simpler pattern in bsclient which also ensures that we are resillient to the device being down on server start.
-* Consult
+* Update the pentair reconnection behavior to follow the simpler pattern in bsclient which also ensures that we are resillient to the device being down on server start.
 * Replace the fake controller infrastructure with a mock blusentinel class which implements the modbus TCP protocol, as we did for pentair. Update tests to use this, taking care to address any timing issues the same way we did for the pentair tests. This should simplify the bsclient code, removing lines of code there, in exchange for adding a new class in the tests. Pull register definitions from the bsclient code instead of duplicating them (refactoring if necessary).
 * Update the README.md to better reflect the current system and link to ARCHITECTURE.md. Add new app screenshots and mention the use of agentic coding, especially in building the UI and test suite.
 
@@ -12,7 +11,6 @@
 ## Log reader updates
 * Make tapping on the uptime card show a graph over time for al three lines.
 * Make tapping on any other card show a graph of that data over time according to the current historical mode.
-
 
 ## Logger test cleanups
 * Make all tests setup and teardown the pentair server config. This should resolve the redundancy between the pentair connection tests and heater on tests and perhaps even let us avoid having extra before/after config for these tests at all.
