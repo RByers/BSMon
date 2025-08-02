@@ -451,8 +451,7 @@ async function updateLogMetrics() {
 
 // Handle time period selection
 function setupTimePeriodSelector() {
-    const mainTimePeriodRadios = document.querySelectorAll('input[name="time-period"]');
-    const chartTimePeriodRadios = document.querySelectorAll('input[name="chart-time-period"]');
+    const allRadios = document.querySelectorAll('input[type="radio"]');
     
     // Function to sync selectors when time period changes
     async function handleTimePeriodChange(newTimePeriod) {
@@ -471,29 +470,19 @@ function setupTimePeriodSelector() {
     
     // Function to keep both selectors synchronized
     function syncTimePeriodSelectors() {
-        const allRadios = [...mainTimePeriodRadios, ...chartTimePeriodRadios];
         allRadios.forEach(radio => {
             radio.checked = parseInt(radio.value) === currentTimePeriod;
         });
     }
     
-    // Add event listeners to main view radio buttons
-    mainTimePeriodRadios.forEach(radio => {
+    // Add event listeners to the radio buttons
+    allRadios.forEach(radio => {
         radio.addEventListener('change', async function() {
             if (this.checked) {
                 await handleTimePeriodChange(parseInt(this.value));
             }
         });
-    });
-    
-    // Add event listeners to chart modal radio buttons
-    chartTimePeriodRadios.forEach(radio => {
-        radio.addEventListener('change', async function() {
-            if (this.checked) {
-                await handleTimePeriodChange(parseInt(this.value));
-            }
-        });
-    });
+    });    
 }
 
 // Handle chart modal
@@ -713,13 +702,20 @@ async function init() {
 }
 
 function handleHashChange(event = null) {
-    const params = getUrlHashParams();
+    const params = getUrlHashParams();    
     
+    // Handle 'days' parameter
+    const days = params.get('days');
+    if (days) {
+        currentTimePeriod = parseInt(days);
+        // The other radio should change automtically due to the change event
+        const radios = document.querySelectorAll(`input[type="radio"][value="${currentTimePeriod}"]`);
+        radios.forEach(radio => radio.checked = true);
+    }
+
     // Handle 'view' parameter
     const view = params.get('view');
     const chartModal = $('chart-modal');
-    
-    // Check if view is a chart view using config
     if (view && chartConfigs[view]) {
         chartModal.classList.remove('hidden');
 
@@ -736,17 +732,7 @@ function handleHashChange(event = null) {
     } else {
         chartModal.classList.add('hidden');
     }
-    
-    // Handle 'days' parameter
-    const days = params.get('days');
-    if (days) {
-        currentTimePeriod = parseInt(days);
-        // The other radio should change automtically due to the change event
-        const radio = document.querySelector(`input[name="time-period"][value="${currentTimePeriod}"]`);
-        if (radio) {
-            radio.checked = true;
-        }
-    }
+
 }
 
 window.onload = () => { init(); }
