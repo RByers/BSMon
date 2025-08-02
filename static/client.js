@@ -637,6 +637,7 @@ function renderChart(viewName, logEntries) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: scales
         }
     });

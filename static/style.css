@@ -429,7 +429,7 @@ main {
     line-height: 1.4;
 }
 
-#chlorine-chart {
+#chart-canvas {
     padding: var(--spacing-unit);
     max-width: 100%;
     max-height: 70vh;
@@ -546,8 +546,37 @@ main {
     }
     
     /* Adjust chart canvas for mobile */
-    #chlorine-chart {
+    #chart-canvas {
         max-height: 60vh;
         padding: 8px;
+    }
+}
+
+/* Short viewport responsiveness (mobile landscape, etc.) */
+@media (max-height: 500px) {
+    .modal-header {
+        padding: 4px 8px;
+    }
+
+    .modal-header h2 {
+        font-size: 1rem;
+    }
+    
+    .chart-time-period-selector .segmented-control label {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+    
+    .close-button {
+        font-size: 1.2rem;
+    }
+    
+    #chart-canvas {
+        max-height: 85vh;
+        padding: 4px;
+    }
+    
+    .modal-content {
+        max-height: 95%;
     }
 }
