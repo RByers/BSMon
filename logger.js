@@ -223,7 +223,7 @@ class Logger {
         return values.join(',');
     }
 
-    // TODO: why do we need this? Can't we share code with whatever mechanism put the timestamp into the log in the first placce?
+    // Short timestamp format supported by Google sheets
     #formatTimestamp(date) {
         const zeroPad = (num) => String(num).padStart(2, '0');
         return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
@@ -302,10 +302,7 @@ class Logger {
             }
 
             // Write the new mean data to the log file
-            // Use a date format easily parsed by Google Sheets
-            const zeroPad = (num) => String(num).padStart(2, '0')
-            out += `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ` +
-                `${now.getHours()}:${zeroPad(now.getMinutes())}:${zeroPad(now.getSeconds())}`;
+            out += this.#formatTimestamp(now);
             
             // Write BS register values - use averages if we have samples, empty strings if not
             for (let r of this.#registersToLog) {
