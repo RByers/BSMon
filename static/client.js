@@ -4,10 +4,28 @@ function $(id) {
 
 // Enable easy client-only testing without redeploying the server.
 // This is especially useful for testing logic that depends on having full logs.
-const urlParams = new URLSearchParams(window.location.hash.substring(1));
+function getUrlHashParams() {
+    return new URLSearchParams(window.location.hash.substring(1));
+}
+
+function setUrlHashParams(newParams) {
+    const params = getUrlHashParams();
+
+    // Set new params, overriding any old ones
+    for (const [key, value] of Object.entries(newParams)) {
+        if (value === undefined || value === null) {
+            params.delete(key);
+        } else {
+            params.set(key, value);
+        }
+    }
+
+    window.location.hash = params.toString();
+}
+
 let serverURL = '/';
-if (window.location.protocol === 'file:' && urlParams.has('serverHost')) {
-    const serverHost = urlParams.get('serverHost');
+const serverHost = getUrlHashParams().get('serverHost');
+if (window.location.protocol === 'file:' && serverHost) {
     const protocol = serverHost.startsWith('localhost') ? 'http' : 'https';
     serverURL = `${protocol}://${serverHost}/`;
 }
@@ -399,22 +417,13 @@ async function updateLogMetrics() {
 function setupTimePeriodSelector() {
     const timePeriodRadios = document.querySelectorAll('input[name="time-period"]');
     
-    // Load saved preference from localStorage
-    const savedPeriod = localStorage.getItem('timePeriod');
-    if (savedPeriod) {
-        currentTimePeriod = parseInt(savedPeriod);
-        const savedRadio = document.querySelector(`input[name="time-period"][value="${currentTimePeriod}"]`);
-        if (savedRadio) {
-            savedRadio.checked = true;
-        }
-    }
-    
     // Add event listeners to all radio buttons
     timePeriodRadios.forEach(radio => {
         radio.addEventListener('change', async function() {
             if (this.checked) {
                 currentTimePeriod = parseInt(this.value);
-                localStorage.setItem('timePeriod', currentTimePeriod.toString());
+                
+                setUrlHashParams({days: currentTimePeriod});
                 
                 // Immediately update log metrics with new time period
                 await updateLogMetrics();
@@ -426,22 +435,14 @@ function setupTimePeriodSelector() {
 // Handle raw data modal
 function setupChartModal() {
     const chlorineCard = $('chlorine-card');
-    const modal = $('chart-modal');
     const closeBtn = $('close-chart');
 
     chlorineCard.onclick = () => {
-        modal.classList.remove('hidden');
-        renderChart(lastMetrics);
+        setUrlHashParams({'view': 'chartCl'});
     };
 
     closeBtn.onclick = () => {
-        modal.classList.add('hidden');
-    };
-
-    window.onclick = (event) => {
-        if (event.target === modal) {
-            modal.classList.add('hidden');
-        }
+        setUrlHashParams({'view': null});
     };
 }
 
@@ -556,19 +557,25 @@ function setupRawDataModal() {
 }
 
 async function init() {
-    // Fetch initial status
-    await fetchStatus();
-    
     // Setup time period selector
     setupTimePeriodSelector();
-    
-    // Fetch initial heater duty cycle and Pentair uptime using shared function
-    await updateLogMetrics();
     
     // Setup raw data modal
     setupRawDataModal();
     setupChartModal();
 
+    // Handle initial state from URL hash
+    handleHashChange();
+    
+    // Add hashchange event listener
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Fetch initial status
+    await fetchStatus();
+    
+    // Fetch initial heater duty cycle and Pentair uptime using shared function
+    await updateLogMetrics();
+    
     // Initialize service worker and notification settings
     if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
         swRegistration = await navigator.serviceWorker.register('sw.js');
@@ -600,6 +607,30 @@ async function init() {
     
     // Set up heater duty cycle and Pentair uptime refresh every 15 minutes using shared function
     setInterval(updateLogMetrics, 15 * 60 * 1000);
+}
+
+function handleHashChange() {
+    const params = getUrlHashParams();
+    
+    // Handle 'view' parameter
+    const view = params.get('view');
+    const chartModal = $('chart-modal');
+    if (view === 'chartCl') {
+        chartModal.classList.remove('hidden');
+        renderChart(lastMetrics);
+    } else {
+        chartModal.classList.add('hidden');
+    }
+    
+    // Handle 'days' parameter
+    const days = params.get('days');
+    if (days) {
+        currentTimePeriod = parseInt(days);
+        const radio = document.querySelector(`input[name="time-period"][value="${currentTimePeriod}"]`);
+        if (radio) {
+            radio.checked = true;
+        }
+    }
 }
 
 window.onload = () => { init(); }

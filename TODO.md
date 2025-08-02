@@ -11,6 +11,7 @@
 ## Log reader updates
 * Make tapping on the uptime card show a graph over time for al three lines.
 * Make tapping on the pH, ORP, and Temperature cards show a graph of that data over time according to the current historical mode.
+* When opening a chart, change the URL using a hash value eg. '#view=chartCl,days=30'. Preserve the serverHost hash paramater if any. When the page is loaded read the hash and open any requested view. This way reloading when on a certain view doesn't change the view. (DONE)
 
 ## Logger test cleanups
 * Make all tests setup and teardown the pentair server config. This should resolve the redundancy between the pentair connection tests and heater on tests and perhaps even let us avoid having extra before/after config for these tests at all.
