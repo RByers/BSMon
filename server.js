@@ -11,6 +11,109 @@ const Logger = require('./logger');
 
 const settings = require('./settings.json');
 
+// Security validation functions
+function isValidPushEndpoint(unsafeUrl) {
+    if (typeof unsafeUrl !== 'string') return false;
+    
+    try {
+        const url = new URL(unsafeUrl);
+        return url.protocol === 'https:' && url.hostname === 'fcm.googleapis.com';
+    } catch {
+        return false;
+    }
+}
+
+function isValidETag(unsafeETag) {
+    return typeof unsafeETag === 'string' && unsafeETag.length < 256;
+}
+
+function isValidBase64(str) {
+    if (typeof str !== 'string') return false;
+    // Base64 regex pattern
+    return /^[A-Za-z0-9+/]*(=|==)?$/.test(str) && str.length > 0;
+}
+
+function validateSubscriptionData(unsafeData) {
+    if (!unsafeData || typeof unsafeData !== 'object') {
+        return { valid: false, error: 'Invalid request format' };
+    }
+
+    const { subscription: unsafeSubscription, settings: unsafeSettings } = unsafeData;
+    let data = {subscription: {}, settings: {}};
+
+    // Validate and copy subscription object
+    if (!unsafeSubscription || typeof unsafeSubscription !== 'object') {
+        return { valid: false, error: 'Missing or invalid subscription' };
+    }
+
+    if (!isValidPushEndpoint(unsafeSubscription.endpoint)) {
+        return { valid: false, error: 'Invalid subscription endpoint' };
+    }
+    data.subscription.endpoint = unsafeSubscription.endpoint;
+
+    if (unsafeSubscription.expirationTime !== null && typeof unsafeSubscription.expirationTime !== 'number') {
+        return { valid: false, error: 'Invalid subscription expirationTime' };
+    }
+    data.subscription.expirationTime = unsafeSubscription.expirationTime;
+
+    if (!unsafeSubscription.keys || typeof unsafeSubscription.keys !== 'object') {
+        return { valid: false, error: 'Missing subscription keys' };
+    }
+
+    if (!isValidBase64(unsafeSubscription.keys.p256dh)) {
+        return { valid: false, error: 'Invalid p256dh key' };
+    }
+
+    if (!isValidBase64(unsafeSubscription.keys.auth)) {
+        return { valid: false, error: 'Invalid auth key' };
+    }
+    data.subscription.keys = {
+        p256dh: unsafeSubscription.keys.p256dh,
+        auth: unsafeSubscription.keys.auth
+    };
+
+    // Validate and copy settings object
+    if (!unsafeSettings || typeof unsafeSettings !== 'object') {
+        return { valid: false, error: 'Missing or invalid settings' };
+    }
+    
+    const allowedNumericSettings = ['clyout-max', 'acidyout-max', 'temp-min'];
+    const allowedBooleanSettings = ['notified-temp-min', 'notified-clyout-max', 'notified-acidyout-max'];
+
+    for (const [key, value] of Object.entries(unsafeSettings)) {
+        if (allowedNumericSettings.includes(key)) {
+            if (typeof value !== 'number' || value < 0 || value > 1000) {
+                return { valid: false, error: `Invalid ${key} value` };
+            }
+            data.settings[key] = value;
+        } else if (allowedBooleanSettings.includes(key)) {
+            if (typeof value !== 'boolean') {
+                return { valid: false, error: `Invalid ${key} value` };
+            }
+            data.settings[key] = value;
+        } else {
+            return { valid: false, error: `Unexpected setting: ${key}` };
+        }
+    }
+
+    return { valid: true, data: data };
+}
+
+// Security headers middleware
+function addSecurityHeaders(req, res, next) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    
+    // Add HSTS header if using HTTPS
+    if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    
+    next();
+}
+
 // DOS mitigation
 // Could add a key to prevent abuse
 const MAX_SUBSCRIPTIONS = 20;
@@ -155,7 +258,8 @@ async function generateRawOutput() {
 }
 
 const app = express();
-app.use(express.static('static'))
+app.use(addSecurityHeaders); // Apply security headers to all routes
+app.use(express.static('static')) // Static files are safe - no sensitive data in /static directory
 app.use(express.json({limit: 1024})); 
 
 webpush.setVapidDetails(
@@ -172,7 +276,7 @@ app.get('/status.txt', (req, res) => {
     }).catch((error) => {
         console.error("Error generating status output:", error, error.stack);
         res.status(500);
-        res.end("ERRORX: " + error.message + error.stack);
+        res.end("Internal server error");
     });
 });
 
@@ -252,8 +356,9 @@ app.get('/api/logs', (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     
     try {
-        // Parse and validate days parameter
-        let days = parseInt(req.query.days) || 1; // Default to 1 day (24h)
+        // Parse and validate days parameter (UNSAFE: user input)
+        const unsafeDaysParam = req.query.days;
+        let days = parseInt(unsafeDaysParam) || 1; // Default to 1 day (24h)
         days = Math.max(1, Math.min(30, days)); // Cap between 1 and 30 days
         
         const logger = new Logger();
@@ -264,9 +369,9 @@ app.get('/api/logs', (req, res) => {
         const etag = logger.getLogFilesETag(startTime, now);
         res.setHeader('ETag', etag);
         
-        // Check if client already has this version
-        const clientETag = req.headers['if-none-match'];
-        if (clientETag && clientETag === etag) {
+        // Check if client already has this version (UNSAFE: user input)
+        const unsafeClientETag = req.headers['if-none-match'];
+        if (unsafeClientETag && unsafeClientETag === etag) {
             res.status(304).end();
             return;
         }
@@ -276,7 +381,7 @@ app.get('/api/logs', (req, res) => {
         res.send(csvData);
     } catch (error) {
         console.error("Error generating log data:", error, error.stack);
-        res.status(500).send(`Error generating log data: ${error.message}`);
+        res.status(500).send("Internal server error");
     }
 });
 
@@ -287,26 +392,30 @@ app.get('/vapid_public_key.txt', (req, res) => {
 
 app.post('/subscribe', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    const data = req.body;
-    const subscription = data.subscription;
-
-    if (!subscription || !subscription.endpoint || !data.settings) {
-        res.status(500).send('Invalid subscription format');
+    
+    // Validate subscription data (UNSAFE: user input)
+    const unsafeRequestBody = req.body;
+    const validation = validateSubscriptionData(unsafeRequestBody);
+    
+    if (!validation.valid) {
+        res.status(400).send(validation.error);
         return;
     }
 
-    if (subscriptionMap.size > MAX_SUBSCRIPTIONS) {
+    if (subscriptionMap.size >= MAX_SUBSCRIPTIONS) {
         console.log("Too many subscriptions");
-        res.status(500).send('Too many subscriptions');
+        res.status(429).send('Too many subscriptions');
         return;
     }
 
-
-    const had = subscriptionMap.has(subscription.endpoint);
-    data.lastSeen = new Date();
-    data.lastIP = req.ip;
-    subscriptionMap.set(subscription.endpoint, data);
+    const endpoint = validation.data.subscription.endpoint;
+    const had = subscriptionMap.has(endpoint);
+    
+    validation.data.lastSeen = new Date();
+    validation.data.lastIP = req.ip; // Store the last IP address of the client
+    subscriptionMap.set(endpoint, validation.data);
     writeSubscriptions();
+    
     if (had) {
         res.send(`Existing subscription (${subscriptionMap.size} total)`);
     } else {
@@ -318,10 +427,29 @@ app.post('/subscribe', (req, res) => {
 
 app.post('/unsubscribe', (req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    const subscription = req.body.subscription;
+    
+    // Validate unsubscribe data (UNSAFE: user input)
+    const unsafeRequestBody = req.body;
+    
+    if (!unsafeRequestBody || typeof unsafeRequestBody !== 'object') {
+        res.status(400).send('Invalid request format');
+        return;
+    }
 
-    if(subscriptionMap.has(subscription.endpoint)) {
-        subscriptionMap.delete(subscription.endpoint);
+    const { subscription: unsafeSubscription } = unsafeRequestBody;
+    
+    if (!unsafeSubscription || typeof unsafeSubscription !== 'object') {
+        res.status(400).send('Missing or invalid subscription');
+        return;
+    }
+
+    if (!isValidPushEndpoint(unsafeSubscription.endpoint)) {
+        res.status(400).send('Invalid subscription endpoint');
+        return;
+    }
+
+    if(subscriptionMap.has(unsafeSubscription.endpoint)) {
+        subscriptionMap.delete(unsafeSubscription.endpoint);
         writeSubscriptions();
         let status = `Unsubscribed (${subscriptionMap.size} total)`
         console.log(`Client ${req.ip}: ${status}`);

@@ -141,8 +141,10 @@ Tests use Jest framework and includes mocking for external dependencies.
 ## Security Considerations
 
 - **Anonymous access**: All data is read-only and not sensitive, so no authentication or authorization system is provided.
-- **DOS Mitigation**: Limited subscription count (MAX_SUBSCRIPTIONS = 20)
-- **Input Validation**: JSON payload size limits (1024 bytes)
+- **Input Validation**: All user input variables are prefixed with `unsafe` and undergo strict validation. Subscription endpoints are restricted to Google FCM with comprehensive property validation and allowlisting.
+- **Security Headers**: Standard headers applied globally (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `Strict-Transport-Security` for HTTPS).
+- **Error Sanitization**: Generic error messages sent to clients while detailed errors are logged server-side to prevent information disclosure.
+- **DOS Mitigation**: Limited subscription count (MAX_SUBSCRIPTIONS = 20) and JSON payload size limits (1024 bytes)
 - **TLS Support**: Optional HTTPS with certificate configuration
 - **Network Isolation**: Exposes a public web interface for devices otherwise secured on a private network
 - **Subscription Management**: Automatic cleanup of invalid push subscriptions

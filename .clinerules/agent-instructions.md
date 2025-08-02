@@ -8,7 +8,9 @@
 * Avoid functions that are longer than about 50 lines
 * NEVER rely on "adding a small delay" using arbitrary time values, that will be either unreliable or unnecessarily slow tests down.
 * Always look for opportunities to reduce the number of lines of code.
-* Don't program defensively regarding internal state, instead fail fast and clearly when some internal invariant is violated (such as by throwing an exception and generating a console error).
+* Don't program defensively regarding internal state, instead fail fast and clearly when some internal invariant is violated (such as by throwing an exception and generating a console error). Unhandled exceptions in the event of programs bugs are good, they ensure the server crashes and stops rather than continues running with possible data corruption.
+* Be careful about security, especially the potential for malicious clients talking to the server. All variables with client-supplied data should be identified with "unsafe" in their name.
+* Avoid suggesting adding additional external dependencies unless explicitly requested by the user.
 * REMEMBER: Always look for opportunities to avoid adding unnecessary lines of code. Be concise and precise!
 
 # BSMon invariants to preserve
