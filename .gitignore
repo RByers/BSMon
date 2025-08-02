@@ -1,4 +1,5 @@
 node_modules/
 settings.json
 subscriptions.json
+agent-instructions-private.md
 static/log-*.csv

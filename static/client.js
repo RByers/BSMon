@@ -1,3 +1,12 @@
+let swRegistration = null;
+let subscription = null;
+let currentTimePeriod = 1; // Default to 1 day
+let chart = null;
+let serverURL = '/';
+
+const checkids = ["n-clyout", "n-acidyout", "n-temp"];
+const textids = ["clyout-max", "acidyout-max", "temp-min"];
+
 function $(id) {
     return document.getElementById(id);
 }
@@ -23,13 +32,6 @@ function setUrlHashParams(newParams) {
     window.location.hash = params.toString();
 }
 
-let serverURL = '/';
-const serverHost = getUrlHashParams().get('serverHost');
-if (window.location.protocol === 'file:' && serverHost) {
-    const protocol = serverHost.startsWith('localhost') ? 'http' : 'https';
-    serverURL = `${protocol}://${serverHost}/`;
-}
-
 function formatDuration(seconds) {
     if (seconds < 60) {
         return `${seconds}s`;
@@ -41,14 +43,6 @@ function formatDuration(seconds) {
         return `${hours}h`;
     }
 }
-
-let swRegistration = null;
-let subscription = null;
-let currentTimePeriod = 1; // Default to 1 day
-let chart = null;
-
-const checkids = ["n-clyout", "n-acidyout", "n-temp"];
-const textids = ["clyout-max", "acidyout-max", "temp-min"];
 
 async function updateServerSubscription(subscribed) {
     const endpoint = subscribed ? 'subscribe' : 'unsubscribe';
@@ -336,6 +330,11 @@ async function updateLogMetrics() {
         const metrics = await getLogMetrics(logIntervalMinutes, serverTime, currentTimePeriod);
         lastMetrics = metrics;
         
+        // Dispatch event to notify UI components of data update
+        window.dispatchEvent(new CustomEvent('logMetricsUpdated', { 
+            detail: { metrics: lastMetrics } 
+        }));
+        
         if (metrics.dutyCycle !== null) {
             $('heater-duty-cycle').textContent = `${metrics.dutyCycle}%`;
         } else {
@@ -444,6 +443,12 @@ function setupChartModal() {
     closeBtn.onclick = () => {
         setUrlHashParams({'view': null});
     };
+}
+
+// Helper function to check if chart modal is currently visible
+function isChartVisible() {
+    const chartModal = $('chart-modal');
+    return chartModal && !chartModal.classList.contains('hidden');
 }
 
 function renderChart(metrics) {
@@ -557,6 +562,12 @@ function setupRawDataModal() {
 }
 
 async function init() {
+    const serverHost = getUrlHashParams().get('serverHost');
+    if (window.location.protocol === 'file:' && serverHost) {
+        const protocol = serverHost.startsWith('localhost') ? 'http' : 'https';
+        serverURL = `${protocol}://${serverHost}/`;
+    }
+   
     // Setup time period selector
     setupTimePeriodSelector();
     
@@ -569,6 +580,13 @@ async function init() {
     
     // Add hashchange event listener
     window.addEventListener('hashchange', handleHashChange);
+
+    // Add event listener for automatic chart updates when log metrics are updated
+    window.addEventListener('logMetricsUpdated', (event) => {
+        if (isChartVisible()) {
+            renderChart(event.detail.metrics);
+        }
+    });
 
     // Fetch initial status
     await fetchStatus();

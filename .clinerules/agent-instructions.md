@@ -27,5 +27,5 @@
 * NEVER commit any changes, let the user do that manually themselves. REMEMBER: you are not allowed to run `git commit`!
 * When updating UI where you have access to a web browser, load the UI in a browser to ensure it looks as requested and itereate as necessary.
 * Be concise and precise. Keep responses to a minimum unless asked to elaborate.
-* When changing only client-side UI, manually test the changes by using your built-in browser tool to open index.html using "#serverHost" to point to the server. If you don't know the server hostname, ask the user. 
+* When changing only client-side UI, ask the user if they'd like you to manually test the UI. If so, use your built-in browser tool to open index.html using "#serverHost" to point to the server. If you don't know the server hostname, ask the user. Use the `view` parameter to jump directly to the view you want to test.
 * When changing the server, assume that `npx nodemon server.js` is already running and just use your browser tool to open localhost. 
