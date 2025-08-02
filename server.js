@@ -188,11 +188,17 @@ app.get('/api/status', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
     try {
-        const statusData = {};
+        const statusData = {
+            system: {
+                logIntervalMinutes: settings.log_entry_minutes,
+                currentTime: new Date(),
+                uptimeSeconds: Math.floor((Date.now() - serverStartTime) / 1000)
+            }
+        };
         
         // Only include BS data if device is connected
         if (bsClient && bsClient.getConnected()) {
-            statusData.system = {
+            statusData.blusentinel = {
                 name: await bsClient.readRegister(Registers.System),
                 clMode: await bsClient.readRegister(Registers.ClMode),
                 phMode: await bsClient.readRegister(Registers.PhMode),
@@ -223,31 +229,30 @@ app.get('/api/status', async (req, res) => {
                 unit: await bsClient.readRegister(Registers.TempUnit)
             };
             statusData.alarmMessages = await bsClient.getAlarmData();
+            const bsStatus = bsClient.getConnectionStatus();
+            if (bsStatus.bluUptimeSeconds !== undefined) {
+                statusData.blusentinel.uptimeSeconds = bsStatus.bluUptimeSeconds;
+            }
+            if (bsStatus.bluDowntimeSeconds !== undefined) {
+                statusData.blusentinel.downtimeSeconds = bsStatus.bluDowntimeSeconds;
+            }
         }
 
         // Only include Pentair data if device is connected
         if (pentairClient && pentairClient.isConnected()) {
-            statusData.heaterOn = pentairClient.heaterOn;
-            statusData.setpoint = pentairClient.setpoint;
-            statusData.waterTemp = pentairClient.waterTemp;
+            statusData.pentair = {
+                heaterOn: pentairClient.heaterOn,
+                setpoint: pentairClient.setpoint,
+                waterTemp: pentairClient.waterTemp
+            };
+            const pentairStatus = pentairClient.getConnectionStatus();
+            if (pentairStatus.pentairUptimeSeconds !== undefined) {
+                statusData.pentair.uptimeSeconds = pentairStatus.pentairUptimeSeconds;
+            }
+            if (pentairStatus.pentairDowntimeSeconds !== undefined) {
+                statusData.pentair.downtimeSeconds = pentairStatus.pentairDowntimeSeconds;
+            }
         }
-        
-        // Add connection status
-        if (bsClient) {
-            Object.assign(statusData, bsClient.getConnectionStatus());
-        }
-        if (pentairClient) {
-            Object.assign(statusData, pentairClient.getConnectionStatus());
-        }
-
-        // Add server uptime
-        statusData.bsmonUptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
-
-        // Add server configuration and current time
-        statusData.config = {
-            logIntervalMinutes: settings.log_entry_minutes
-        };
-        statusData.currentTime = new Date();
         
         res.json(statusData);
     } catch (error) {

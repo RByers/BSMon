@@ -206,23 +206,18 @@ function updateUI(data) {
     }
 
     // Update Heater card
-    if (data.hasOwnProperty('heaterOn')) {
-        $('heater-status').textContent = data.heaterOn ? 'On' : 'Off';
-        
+    if (data.pentair) {
+        $('heater-status').textContent = data.pentair.heaterOn ? 'On' : 'Off';
+        $('heater-setpoint').textContent = `${data.pentair.setpoint}°F`;
     } else {
         $('heater-status').textContent = '-';
-    }
-
-    if (data.setpoint) {
-        $('heater-setpoint').textContent = `${data.setpoint}°F`;
-    } else {
         $('heater-setpoint').textContent = '-';
     }
 
     // Update Page Title with System Name
-    if (data.system && data.system.name) {
-        $('page-title').textContent = `BSMon: ${data.system.name}`;
-        $('page-title-tag').textContent = `BSMon: ${data.system.name}`;
+    if (data.blusentinel && data.blusentinel.name) {
+        $('page-title').textContent = `BSMon: ${data.blusentinel.name}`;
+        $('page-title-tag').textContent = `BSMon: ${data.blusentinel.name}`;
     }
     
     // Update Alarms (including connection status)
@@ -231,13 +226,13 @@ function updateUI(data) {
     let hasAlarms = false;
     
     // Add device connection alarms
-    if (data.bluDowntimeSeconds !== undefined) {
-        alarmHtml += `<div>Connection: BluSentinel down for ${formatDuration(data.bluDowntimeSeconds)}</div>`;
+    if (data.blusentinel && data.blusentinel.downtimeSeconds !== undefined) {
+        alarmHtml += `<div>Connection: BluSentinel down for ${formatDuration(data.blusentinel.downtimeSeconds)}</div>`;
         hasAlarms = true;
     }
-    
-    if (data.pentairDowntimeSeconds !== undefined) {
-        alarmHtml += `<div>Connection: Pentair down for ${formatDuration(data.pentairDowntimeSeconds)}</div>`;
+
+    if (data.pentair && data.pentair.downtimeSeconds !== undefined) {
+        alarmHtml += `<div>Connection: Pentair down for ${formatDuration(data.pentair.downtimeSeconds)}</div>`;
         hasAlarms = true;
     }
     
@@ -305,8 +300,8 @@ async function updateLogMetrics() {
     try {
         // Get current status to access log interval and server time
         const statusData = await fetchStatus();
-        const logIntervalMinutes = statusData.config.logIntervalMinutes;
-        const serverTime = new Date(statusData.currentTime);
+        const logIntervalMinutes = statusData.system.logIntervalMinutes;
+        const serverTime = new Date(statusData.system.currentTime);
         
         const metrics = await getLogMetrics(logIntervalMinutes, serverTime, currentTimePeriod);
         
@@ -322,9 +317,13 @@ async function updateLogMetrics() {
         updateUptimePercentage('pentair-pct', metrics.pentairUptime);
         
         // Update uptime status (right column) from status API
-        updateUptimeStatus('bsmon-status', statusData.bsmonUptimeSeconds, null);
-        updateUptimeStatus('bs-status', statusData.bluUptimeSeconds, statusData.bluDowntimeSeconds);
-        updateUptimeStatus('pentair-status', statusData.pentairUptimeSeconds, statusData.pentairDowntimeSeconds);
+        updateUptimeStatus('bsmon-status', statusData.system.uptimeSeconds, null);
+        if (statusData.blusentinel) {
+            updateUptimeStatus('bs-status', statusData.blusentinel.uptimeSeconds, statusData.blusentinel.downtimeSeconds);
+        }
+        if (statusData.pentair) {
+            updateUptimeStatus('pentair-status', statusData.pentair.uptimeSeconds, statusData.pentair.downtimeSeconds);
+        }
         
         if (metrics.clOutputAvg !== null) {
             $('cl-output-avg').textContent = `${metrics.clOutputAvg.toFixed(1)}%`;

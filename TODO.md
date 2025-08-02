@@ -1,6 +1,5 @@
 # TODO
 
-* Update the status endpoint to better organize the json. put all pentair values inside a pentair object and all uptimes in a single "uptimeseconds" object (with short property names like "pentair"). Rename "system" to "blusentinel". Add a new "system" object at the beginning and move logIntervalMinutes and currentTime into it.
 * Remove the heartbeat/ping behavior from the pentair client but preserve the auto-reconnection behavior. Update the reconnection behavior to follow the simpler pattern in bsclient which also ensures that we are resillient to the device being down on server start.
 * Consult
 * Replace the fake controller infrastructure with a mock blusentinel class which implements the modbus TCP protocol, as we did for pentair. Update tests to use this, taking care to address any timing issues the same way we did for the pentair tests. This should simplify the bsclient code, removing lines of code there, in exchange for adding a new class in the tests. Pull register definitions from the bsclient code instead of duplicating them (refactoring if necessary).
