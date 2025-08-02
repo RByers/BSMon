@@ -1,6 +1,5 @@
 # TODO
 
-* Remove the raw status endpoint, but preserve the button for having a pretty-prented version of the json status.
 * Update the status endpoint to better organize the json. put all pentair values inside a pentair object and all uptimes in a single "uptimeseconds" object (with short property names like "pentair"). Rename "system" to "blusentinel". Add a new "system" object at the beginning and move logIntervalMinutes and currentTime into it.
 * Remove the heartbeat/ping behavior from the pentair client but preserve the auto-reconnection behavior. Update the reconnection behavior to follow the simpler pattern in bsclient which also ensures that we are resillient to the device being down on server start.
 * Consult

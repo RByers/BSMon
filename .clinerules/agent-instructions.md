@@ -26,3 +26,4 @@
 * Avoid commands that require user interaction - use appropriate flags to prevent pagers, prompts, or interactive modes (e.g., `git --no-pager diff`, `git --no-pager log`).
 * NEVER commit any changes, let the user do that manually themselves. REMEMBER: you are not allowed to run `git commit`!
 * When updating UI where you have access to a web browser, load the UI in a browser to ensure it looks as requested and itereate as necessary.
+* Be concise and precise. Keep responses to a minimum unless asked to elaborate.

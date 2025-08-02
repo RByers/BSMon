@@ -300,21 +300,6 @@ async function fetchStatus() {
     }
 }
 
-// Fetch raw status text
-async function fetchRawStatus() {
-    try {
-        const response = await fetch('/status.txt');
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const text = await response.text();
-        return text;
-    } catch (error) {
-        console.error('Error fetching raw status:', error);
-        return `Error fetching raw status: ${error.message}`;
-    }
-}
-
 // Update log metrics (heater duty cycle, Pentair uptime, BS uptime, service uptime, and 24h output averages) using shared data fetch
 async function updateLogMetrics() {
     try {
@@ -436,8 +421,12 @@ function setupRawDataModal() {
     viewRawDataBtn.onclick = async function() {
         modal.classList.remove('hidden');
         rawStatus.textContent = 'Loading...';
-        const text = await fetchRawStatus();
-        rawStatus.textContent = text;
+        const data = await fetchStatus();
+        if (data) {
+            rawStatus.textContent = JSON.stringify(data, null, 2);
+        } else {
+            rawStatus.textContent = "Error fetching status";
+        }
     };
     
     closeRawDataBtn.onclick = function() {

@@ -172,90 +172,6 @@ function roundRegister(val, register) {
     }
     return val.toString();
 }
-async function readRegisterRounded(client, register) {
-    let val = await client.readRegister(register);
-    return roundRegister(val, register);
-}
-
-async function getRegisterSet(client, rs) {
-    let value = await readRegisterRounded(client, rs.value);
-    let unit = await client.readRegister(rs.unit);
-
-    let out = `${value} ${unit}`;
-    if (rs.setpoint) {
-        let setpoint = await readRegisterRounded(client, rs.setpoint);
-        out += `, setpoint: ${setpoint}`;
-    }
-    if (rs.yout) {
-        let yout = await readRegisterRounded(client, rs.yout);
-        out += `, yout: ${yout}%`;
-    }
-    return out;
-}
-
-async function generateRawOutput() {
-    let out = '';
-    
-    // Connection status
-    if (bsClient) {
-        const bsStatus = bsClient.getConnectionStatus();
-        if (bsStatus.bluUptimeSeconds !== undefined) {
-            out += `BluSentinel: Connected for ${bsStatus.bluUptimeSeconds} seconds\n`;
-        } else {
-            out += `BluSentinel: Disconnected for ${bsStatus.bluDowntimeSeconds} seconds\n`;
-        }
-    }
-    
-    if (pentairClient) {
-        const pentairStatus = pentairClient.getConnectionStatus();
-        if (pentairStatus.pentairUptimeSeconds !== undefined) {
-            out += `Pentair: Connected for ${pentairStatus.pentairUptimeSeconds} seconds\n`;
-        } else {
-            out += `Pentair: Disconnected for ${pentairStatus.pentairDowntimeSeconds} seconds\n`;
-        }
-    } else {
-        out += 'Pentair: Not configured\n';
-    }
-    
-    out += '\n';
-    
-    if (bsClient && bsClient.getConnected()) {
-        out += 'BluSentinel System: ' + await bsClient.readRegister(Registers.System) + '\n';
-        for (const rs in RegisterSets) {
-            out += rs + ': ' + await getRegisterSet(bsClient, RegisterSets[rs]) + '\n';
-        }
-
-        for (const r of ['Alarms', 'ClMode', 'PhMode', 'ClError', 'PhError', 'ORPError', 'TempError']) {
-            out += r + ': ' + await bsClient.readRegister(Registers[r]) + '\n';
-        }
-        // It seems Alarm 1 is the meaningful alarm. 2-5 are always set. 
-
-        // Alarms like low chlorine may be here without any indication in the registers.
-        let dataAlarms = await bsClient.getAlarmData();
-        out += `Alarm Messages: ${dataAlarms.alarms}\n`
-        for (const am of dataAlarms.messages) {
-            out += `  ${am.sourceTxt}: ${am.msgTxt} [${am.rdate}]\n`
-        }
-    } else {
-        out += 'BluSentinel device offline\n';
-    }
-
-    out += '\n';
-    if (pentairClient && pentairClient.isConnected()) {
-        out += 'Pentair data:\n';
-        out += `Heater On: ${pentairClient.heaterOn ? 'Yes' : 'No'}\n`;
-        out += `Setpoint: ${pentairClient.setpoint}\n`;
-        out += `Water Temp: ${pentairClient.waterTemp}\n`;
-        out += `Total Heater On Time: ${pentairClient.getCurrentTotalHeaterOnTime()}\n`
-        out += `Total Connection Time: ${pentairClient.getCurrentTotalConnectionTime()}\n`;
-    } else if (pentairClient) {
-        out += 'Pentair device offline\n';
-    } else {
-        out += 'No Pentair device configured\n';
-    }
-
-    return out;
-}
 
 const app = express();
 app.use(addSecurityHeaders); // Apply security headers to all routes
@@ -267,18 +183,6 @@ webpush.setVapidDetails(
     settings.vapid_public_key,
     settings.vapid_private_key
   );
-
-app.get('/status.txt', (req, res) => {
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-    generateRawOutput().then((data) => {
-        res.end(data);
-    }).catch((error) => {
-        console.error("Error generating status output:", error, error.stack);
-        res.status(500);
-        res.end("Internal server error");
-    });
-});
 
 app.get('/api/status', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
