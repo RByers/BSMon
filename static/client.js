@@ -32,6 +32,10 @@ function setUrlHashParams(newParams) {
     window.location.hash = params.toString();
 }
 
+function setView(view) {
+    setUrlHashParams({'view': view});
+}
+
 function formatDuration(seconds) {
     if (seconds < 60) {
         return `${seconds}s`;
@@ -435,14 +439,29 @@ function setupTimePeriodSelector() {
 function setupChartModal() {
     const chlorineCard = $('chlorine-card');
     const closeBtn = $('close-chart');
+    const chartModal = $('chart-modal');
 
     chlorineCard.onclick = () => {
-        setUrlHashParams({'view': 'chartCl'});
+        setView('chartCl');
     };
 
     closeBtn.onclick = () => {
-        setUrlHashParams({'view': null});
+        setView(null);
     };
+
+    // Close chart modal when clicking outside of it (scrim click)
+    chartModal.onclick = function(event) {
+        if (event.target === chartModal) {
+            setView(null);
+        }
+    };
+
+    // Close chart modal when pressing escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && isChartVisible()) {
+            setView(null);
+        }
+    });
 }
 
 // Helper function to check if chart modal is currently visible
