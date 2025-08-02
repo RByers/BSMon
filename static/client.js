@@ -31,6 +31,17 @@ const chartConfigs = {
             y: { title: 'pH', position: 'left', min: 7.2 },
             y1: { title: 'Output %', position: 'right', min: 0, max: 5 }
         }
+    },
+    chartOrp: {
+        title: 'ORP Data',
+        datasets: [
+            { label: 'ORP Value', dataField: 'ORPValue', yAxis: 'y', color: 'rgba(255, 99, 132, 1)' },
+            { label: 'pH Value', dataField: 'PhValue', yAxis: 'y1', color: 'rgba(153, 102, 255, 1)' }
+        ],
+        yAxes: {
+            y: { title: 'ORP (mV)', position: 'left', min: 400 },
+            y1: { title: 'pH', position: 'right', min: 7.2, max: 8.0 }
+        }
     }
 };
 
@@ -489,6 +500,7 @@ function setupTimePeriodSelector() {
 function setupChartModal() {
     const chlorineCard = $('chlorine-card');
     const phCard = $('ph-card');
+    const orpCard = $('orp-card');
     const closeBtn = $('close-chart');
     const chartModal = $('chart-modal');
 
@@ -498,6 +510,10 @@ function setupChartModal() {
 
     phCard.onclick = () => {
         setView('chartPh');
+    };
+
+    orpCard.onclick = () => {
+        setView('chartOrp');
     };
 
     closeBtn.onclick = () => {
