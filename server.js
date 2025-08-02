@@ -174,6 +174,17 @@ function roundRegister(val, register) {
 }
 
 const app = express();
+
+// Allow clients running on other hosts to access the API.
+// This is specifically useful for testing client-only changes, but there's no security reason why
+// access to the API would be dangerous. 
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    next();
+});
+
 app.use(addSecurityHeaders); // Apply security headers to all routes
 app.use(express.static('static')) // Static files are safe - no sensitive data in /static directory
 app.use(express.json({limit: 1024})); 

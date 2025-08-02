@@ -6,7 +6,7 @@
  * @returns {Promise<string>} CSV text data
  */
 async function fetchLogs(days = 1) {
-    const response = await fetch(`/api/logs?days=${days}`);
+    const response = await fetch(`${serverURL}api/logs?days=${days}`);
     if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
     }

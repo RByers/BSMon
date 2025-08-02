@@ -2,6 +2,16 @@ function $(id) {
     return document.getElementById(id);
 }
 
+// Enable easy client-only testing without redeploying the server.
+// This is especially useful for testing logic that depends on having full logs.
+const urlParams = new URLSearchParams(window.location.search);
+let serverURL = '/';
+if (window.location.protocol === 'file:' && urlParams.has('serverHost')) {
+    const serverHost = urlParams.get('serverHost');
+    const protocol = serverHost.startsWith('localhost') ? 'http' : 'https';
+    serverURL = `${protocol}://${serverHost}/`;
+}
+
 function formatDuration(seconds) {
     if (seconds < 60) {
         return `${seconds}s`;
@@ -22,7 +32,7 @@ const checkids = ["n-clyout", "n-acidyout", "n-temp"];
 const textids = ["clyout-max", "acidyout-max", "temp-min"];
 
 async function updateServerSubscription(subscribed) {
-    const endpoint = subscribed ? '/subscribe' : '/unsubscribe';
+    const endpoint = subscribed ? 'subscribe' : 'unsubscribe';
 
     subset = {};
     for (let i = 0; i < checkids.length; i++) {
@@ -35,7 +45,7 @@ async function updateServerSubscription(subscribed) {
     const body = JSON.stringify({
         subscription: subscription,
         settings: subset});
-    const resp = await fetch(endpoint, {
+    const resp = await fetch(serverURL + endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -52,7 +62,7 @@ async function updateServerSubscription(subscribed) {
 }
 
 async function subscribe() {
-    const vkresp = await fetch('/vapid_public_key.txt');
+    const vkresp = await fetch(serverURL + 'vapid_public_key.txt');
     const vapidKey = (await vkresp.text()).trim();
     subscription = await swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -281,7 +291,7 @@ function updateUI(data) {
 
 async function fetchStatus() {
     try {
-        const response = await fetch('/api/status');
+        const response = await fetch(serverURL + 'api/status');
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
@@ -454,7 +464,7 @@ async function init() {
     setupRawDataModal();
 
     // Initialize service worker and notification settings
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
         swRegistration = await navigator.serviceWorker.register('sw.js');
         console.log('Service Worker is registered', swRegistration);
         await initNotifyButtion();
