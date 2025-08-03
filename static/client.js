@@ -48,11 +48,60 @@ const chartConfigs = {
         datasets: [
             { label: 'Temperature', dataField: 'TempValue', yAxis: 'y', color: 'rgba(54, 162, 235, 1)' },
             { label: 'Setpoint', dataField: 'setpoint', yAxis: 'y', color: 'rgba(255, 99, 132, 1)' },
-            { label: 'Duty Cycle', dataField: 'DutyCycle', yAxis: 'y1', color: 'rgba(255, 159, 64, 1)' }
+            { 
+                label: 'Duty Cycle', 
+                yAxis: 'y1', 
+                color: 'rgba(255, 159, 64, 1)',
+                datafunc: (current) => {
+                    const heaterSeconds = current.HeaterOnSeconds || 0;
+                    const pentairSeconds = current.PentairSeconds || 0;
+                    return pentairSeconds > 0 ? (heaterSeconds / pentairSeconds) * 100 : 0;
+                }
+            }
         ],
         yAxes: {
             y: { title: 'Temperature (°F)', position: 'left', hardMin: 60 },
             y1: { title: 'Duty Cycle (%)', position: 'right', min: 0, max: 200 }
+        }
+    },
+    chartUptimes: {
+        title: 'Uptime Chart',
+        datasets: [
+            { 
+                label: 'Service', 
+                yAxis: 'y', 
+                color: 'rgba(75, 192, 192, 1)',
+                datafunc: (current, previous) => {
+                    if (!previous) return null;
+                    const intervalSeconds = (new Date(current.Time) - new Date(previous.Time)) / 1000;
+                    return intervalSeconds > 0 ? current.serviceUptimeSeconds / intervalSeconds * 100 : 100;
+                }
+            },
+            { 
+                label: 'Pentair', 
+                yAxis: 'y', 
+                color: 'rgba(54, 162, 235, 1)',
+                datafunc: (current, previous) => {
+                    if (!previous) return null;
+                    const intervalSeconds = (new Date(current.Time) - new Date(previous.Time)) / 1000;
+                    return intervalSeconds > 0 ? current.PentairSeconds / intervalSeconds * 100 : 100;
+                }
+            },
+            { 
+                label: 'BluSentinel', 
+                yAxis: 'y', 
+                color: 'rgba(255, 99, 132, 1)',
+                datafunc: (current, previous) => {
+                    if (!previous) return null;
+                    const intervalSeconds = (new Date(current.Time) - new Date(previous.Time)) / 1000;
+                    const serviceUptime = intervalSeconds > 0 ? current.serviceUptimeSeconds / intervalSeconds * 100 : 100;
+                    const successRate = current.SuccessCount / (current.SuccessCount + current.TimeoutCount) || 1;
+                    return serviceUptime * successRate;
+                }
+            }
+        ],
+        yAxes: {
+            y: { title: 'Uptime %', position: 'left', min: 0, max: 100 }
         }
     }
 };
@@ -529,6 +578,10 @@ function setupChartModal() {
         setView('chartHeater');
     };
 
+    $('system-card').onclick = () => {
+        setView('chartUptimes');
+    };
+
     $('close-chart').onclick = () => {
         setView(null);
     };
@@ -569,18 +622,17 @@ function renderChart(viewName, logEntries) {
     // Process datasets using config
     const chartDatasets = config.datasets.map(dataset => ({
         label: dataset.label,
-        data: logEntries.map(entry => {
+        data: logEntries.map((entry, index) => {
             let yValue;
-            if (dataset.dataField === 'DutyCycle') {
-                // Calculate duty cycle from HeaterOnSeconds and PentairSeconds
-                const heaterSeconds = entry.HeaterOnSeconds || 0;
-                const pentairSeconds = entry.PentairSeconds || 0;
-                yValue = pentairSeconds > 0 ? (heaterSeconds / pentairSeconds) * 100 : 0;
+            if (dataset.datafunc) {
+                // Use custom data function with current and previous entries
+                const previousEntry = index > 0 ? logEntries[index - 1] : null;
+                yValue = dataset.datafunc(entry, previousEntry);
             } else {
                 yValue = entry[dataset.dataField];
             }
             return {x: new Date(entry.Time), y: yValue};
-        }),
+        }).filter(point => point.y !== null), // Filter out null values
         borderColor: dataset.color,
         backgroundColor: dataset.color.replace('1)', '0.2)'),
         yAxisID: dataset.yAxis,
