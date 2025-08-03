@@ -557,34 +557,25 @@ function setupTimePeriodSelector() {
     });    
 }
 
+// Helper function to add chart click handlers with preventDefault
+function addChartClickHandler(elementId, viewName) {
+    const element = $(elementId);
+    element.onclick = (event) => {
+        event.preventDefault();
+        setView(viewName);
+    };
+}
+
 // Handle chart modal
 function setupChartModal() {
-    $('chlorine-card').onclick = () => {
-        setView('chartCl');
-    };
-
-    $('ph-card').onclick = () => {
-        setView('chartPh');
-    };
-
-    $('orp-card').onclick = () => {
-        setView('chartOrp');
-    };
-
-    $('temp-card').onclick = () => {
-        setView('chartHeater');
-    };
-    $('heater-card').onclick = () => {
-        setView('chartHeater');
-    };
-
-    $('system-card').onclick = () => {
-        setView('chartUptimes');
-    };
-
-    $('close-chart').onclick = () => {
-        setView(null);
-    };
+    // Chart card handlers
+    addChartClickHandler('chlorine-card', 'chartCl');
+    addChartClickHandler('ph-card', 'chartPh');
+    addChartClickHandler('orp-card', 'chartOrp');
+    addChartClickHandler('temp-card', 'chartHeater');
+    addChartClickHandler('heater-card', 'chartHeater');
+    addChartClickHandler('system-card', 'chartUptimes');
+    addChartClickHandler('close-chart', null);
 
     // Close chart modal when clicking outside of it (scrim click)
     $('chart-modal').onclick = function(event) {
