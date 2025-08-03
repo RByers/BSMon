@@ -87,7 +87,7 @@ function calculateHeaterDutyCycle(logEntries) {
 }
 
 /**
- * Calculate Pentair uptime from log entries
+ * Calculate Pentair uptime from log entries relative to service uptime
  * @param {Array<Object>} logEntries - Parsed log entries
  * @returns {number|null} Uptime percentage (0-100) or null if no data
  */
@@ -96,46 +96,25 @@ function calculatePentairUptime(logEntries) {
         return null;
     }
     
-    // Need at least 2 entries to calculate time span
-    if (logEntries.length < 2) {
-        return null;
-    }
-    
     let totalPentairSeconds = 0;
+    let totalServiceUptimeSeconds = 0;
     
-    // Sum PentairSeconds from entries 2 through N (skip first entry)
-    // The first entry's PentairSeconds represents an unknown time span
-    // Entry i represents the interval from timestamp i-1 to timestamp i
-    for (let i = 1; i < logEntries.length; i++) {
+    // Sum PentairSeconds and serviceUptimeSeconds from entries that have both fields
+    // Only count periods where we know both Pentair uptime and service uptime
+    for (let i = 0; i < logEntries.length; i++) {
         const entry = logEntries[i];
-        if (entry.hasOwnProperty('PentairSeconds')) {
-            totalPentairSeconds += entry.PentairSeconds || 0;
+        if (entry.hasOwnProperty('PentairSeconds') && entry.hasOwnProperty('serviceUptimeSeconds')) {
+            totalPentairSeconds += entry.PentairSeconds;
+            totalServiceUptimeSeconds += entry.serviceUptimeSeconds;
         }
     }
     
-    // Calculate total time span from first to last timestamp
-    const firstEntry = logEntries[0];
-    const lastEntry = logEntries[logEntries.length - 1];
-    
-    if (!firstEntry.Time || !lastEntry.Time) {
-        return null;
-    }
-    
-    const firstTimestamp = new Date(firstEntry.Time);
-    const lastTimestamp = new Date(lastEntry.Time);
-    
-    if (isNaN(firstTimestamp.getTime()) || isNaN(lastTimestamp.getTime())) {
-        return null;
-    }
-    
-    const totalTimeSpanSeconds = (lastTimestamp - firstTimestamp) / 1000;
-    
     // Avoid division by zero
-    if (totalTimeSpanSeconds <= 0) {
+    if (totalServiceUptimeSeconds <= 0) {
         return null;
     }
     
-    const uptime = (totalPentairSeconds / totalTimeSpanSeconds) * 100;
+    const uptime = (totalPentairSeconds / totalServiceUptimeSeconds) * 100;
     return uptime;
 }
 
