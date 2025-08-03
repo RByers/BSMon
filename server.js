@@ -273,7 +273,7 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.get('/api/logs', (req, res) => {
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     
     try {
         // Parse and validate days parameter (UNSAFE: user input)
