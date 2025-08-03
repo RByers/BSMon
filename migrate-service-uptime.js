@@ -28,6 +28,7 @@ function migrateLogFile(filePath) {
     
     const header = lines[0];
     const headerFields = header.split(',');
+    const originalColumnCount = headerFields.length;
     
     // Check if serviceUptimeSeconds column already exists
     if (headerFields.includes('serviceUptimeSeconds')) {
@@ -35,11 +36,13 @@ function migrateLogFile(filePath) {
         return false;
     }
     
-    console.log(`  Adding serviceUptimeSeconds column...`);
+    console.log(`  Adding serviceUptimeSeconds column (original header has ${originalColumnCount} columns)...`);
     
     // Update header
     const newHeader = header + ',serviceUptimeSeconds';
     const updatedLines = [newHeader];
+    
+    let paddedRowCount = 0;
     
     // Update data rows
     for (let i = 1; i < lines.length; i++) {
@@ -50,8 +53,22 @@ function migrateLogFile(filePath) {
             continue;
         }
         
-        // Add serviceUptimeSeconds value to each data row
-        const newLine = line + ',' + SERVICE_UPTIME_SECONDS;
+        // Count columns in this data row
+        const rowFields = line.split(',');
+        const rowColumnCount = rowFields.length;
+        
+        let paddedLine = line;
+        
+        // If this row has fewer columns than the original header, pad with empty columns
+        if (rowColumnCount < originalColumnCount) {
+            const missingColumns = originalColumnCount - rowColumnCount;
+            const padding = ','.repeat(missingColumns);
+            paddedLine = line + padding;
+            paddedRowCount++;
+        }
+        
+        // Add serviceUptimeSeconds value to the padded row
+        const newLine = paddedLine + ',' + SERVICE_UPTIME_SECONDS;
         updatedLines.push(newLine);
     }
     
@@ -59,43 +76,44 @@ function migrateLogFile(filePath) {
     const newContent = updatedLines.join('\n');
     fs.writeFileSync(filePath, newContent, 'utf8');
     
-    console.log(`  Successfully updated ${lines.length - 1} data rows.`);
+    const dataRowCount = lines.length - 1;
+    console.log(`  Successfully updated ${dataRowCount} data rows.`);
+    if (paddedRowCount > 0) {
+        console.log(`  Padded ${paddedRowCount} rows that had fewer than ${originalColumnCount} columns.`);
+    }
     return true;
 }
 
-function findLogFiles() {
-    const staticDir = './static';
-    if (!fs.existsSync(staticDir)) {
-        console.error('Static directory not found. Please run this script from the BSMon root directory.');
-        process.exit(1);
-    }
-    
-    const files = fs.readdirSync(staticDir);
-    const logFiles = files
-        .filter(file => file.startsWith('log-') && file.endsWith('.csv'))
-        .map(file => path.join(staticDir, file));
-    
-    return logFiles;
+function showUsage() {
+    console.log('BSMon Log File Migration Script');
+    console.log('Usage: node migrate-service-uptime.js <file1> [file2] [file3] ...');
+    console.log('');
+    console.log('Examples:');
+    console.log('  node migrate-service-uptime.js static/log-2025-7.csv');
+    console.log('  node migrate-service-uptime.js static/log-2025-7.csv static/log-2025-8.csv');
+    console.log('');
+    console.log('This script adds the serviceUptimeSeconds column to existing log files.');
 }
 
 function main() {
-    console.log('BSMon Log File Migration Script');
-    console.log('Adding serviceUptimeSeconds column to existing log files...\n');
+    // Get command line arguments (skip node and script name)
+    const filePaths = process.argv.slice(2);
     
-    const logFiles = findLogFiles();
-    
-    if (logFiles.length === 0) {
-        console.log('No log files found in ./static directory.');
-        return;
+    if (filePaths.length === 0) {
+        showUsage();
+        process.exit(1);
     }
     
-    console.log(`Found ${logFiles.length} log file(s):`);
-    logFiles.forEach(file => console.log(`  ${file}`));
+    console.log('BSMon Log File Migration Script');
+    console.log('Adding serviceUptimeSeconds column to specified log files...\n');
+    
+    console.log(`Processing ${filePaths.length} file(s):`);
+    filePaths.forEach(file => console.log(`  ${file}`));
     console.log('');
     
     let migratedCount = 0;
     
-    for (const logFile of logFiles) {
+    for (const logFile of filePaths) {
         try {
             if (migrateLogFile(logFile)) {
                 migratedCount++;
@@ -118,4 +136,4 @@ if (require.main === module) {
     main();
 }
 
-module.exports = { migrateLogFile, findLogFiles };
+module.exports = { migrateLogFile };

@@ -193,7 +193,7 @@ function calculateServiceUptime(logEntries) {
     for (let i = 1; i < logEntries.length; i++) {
         const entry = logEntries[i];
         if (entry.hasOwnProperty('serviceUptimeSeconds')) {
-            totalServiceUptimeSeconds += entry.serviceUptimeSeconds || 0;
+            totalServiceUptimeSeconds += entry.serviceUptimeSeconds;
         }
     }
     
@@ -201,17 +201,8 @@ function calculateServiceUptime(logEntries) {
     const firstEntry = logEntries[0];
     const lastEntry = logEntries[logEntries.length - 1];
     
-    if (!firstEntry.Time || !lastEntry.Time) {
-        return null;
-    }
-    
     const firstTimestamp = new Date(firstEntry.Time);
     const lastTimestamp = new Date(lastEntry.Time);
-    
-    if (isNaN(firstTimestamp.getTime()) || isNaN(lastTimestamp.getTime())) {
-        return null;
-    }
-    
     const totalTimeSpanSeconds = (lastTimestamp - firstTimestamp) / 1000;
     
     if (totalTimeSpanSeconds <= 0) {
