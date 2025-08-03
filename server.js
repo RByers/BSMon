@@ -556,6 +556,9 @@ if (require.main === module) {
     // Graceful shutdown
     process.on('SIGINT', async () => {
         console.log('Shutting down gracefully...');
+        if (logger) {
+            logger.flushPartialLogEntry();
+        }
         if (bsClient) {
             await bsClient.close();
         }

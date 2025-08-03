@@ -350,6 +350,77 @@ describe('Logger', () => {
     });
   });
 
+  describe('flushPartialLogEntry', () => {
+    it('should flush accumulated data before reaching log interval', async () => {
+      const mockClient = makeMockBSClient(createRegisterValues(4));
+      const logger = new Logger({
+        bsClient: mockClient,
+        fs: mockFs,
+        settings: { log_entry_minutes: 10 },
+        nowFn
+      });
+
+      // Accumulate some data by calling updateLog (but not enough time to trigger normal write)
+      await logger.updateLog();
+      logger.incrementTimeoutCount();
+      logger.incrementTimeoutCount();
+
+      // Advance time slightly but not enough to trigger normal log write
+      fakeNow = new Date(fakeNow.getTime() + 5 * 60 * 1000); // 5 minutes
+
+      logger.flushPartialLogEntry();
+
+      // Verify file was written
+      expect(mockFs.appendFileSync).toHaveBeenCalled();
+      expect(logFile.content.length).toBe(2); // Header + 1 data row
+      
+      const result = logFile.getLastDataRow();
+      expect(result.SuccessCount).toBe(1); // One successful sample
+      expect(result.TimeoutCount).toBe(2); // Two timeout increments
+      for (const registerName of LOGGER_REGISTERS) {
+        expect(result[registerName]).toBe(4); // Value from mock
+      }
+    });
+
+    it('should not flush if no accumulated data', () => {
+      const mockClient = makeMockBSClient(createRegisterValues(2));
+      const logger = new Logger({
+        bsClient: mockClient,
+        fs: mockFs,
+        settings: { log_entry_minutes: 10 },
+        nowFn
+      });
+
+      logger.flushPartialLogEntry();
+
+      // Should not write anything
+      expect(mockFs.appendFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should handle errors gracefully during flush', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const mockClient = makeMockBSClient(createRegisterValues(2));
+      const errorFs = {
+        ...mockFs,
+        appendFileSync: jest.fn(() => { throw new Error('Write error'); })
+      };
+      const logger = new Logger({
+        bsClient: mockClient,
+        fs: errorFs,
+        settings: { log_entry_minutes: 10 },
+        nowFn
+      });
+
+      // Accumulate some data
+      await logger.updateLog();
+
+      logger.flushPartialLogEntry();
+
+      expect(consoleSpy).toHaveBeenCalledWith('Error flushing partial log entry:', expect.any(Error));
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe('Heater On Seconds Tests', () => {
     const MOCK_SERVER_PORT = 6681;
     

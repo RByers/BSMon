@@ -285,59 +285,77 @@ class Logger {
         }
     }
 
+    #writeLogEntry(now) {
+        // Get Pentair data and compute logfile name
+        const pentairData = this.#getPentairData();
+        const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
+
+        // If the log file doesn't exist yet, create it with an appropriate header
+        let out = '';
+        if (!this.#fs.existsSync(logFileName)) {
+            out = this.#generateCSVHeader() + '\n';
+        }
+
+        // Write the new mean data to the log file
+        out += this.#formatTimestamp(now);
+        
+        // Write BS register values - use averages if we have samples, empty strings if not
+        for (let r of this.#registersToLog) {
+            if (this.#accumSamples > 0) {
+                out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
+            } else {
+                out += ',';  // Empty value
+            }
+        }
+        out += `,${this.#accumSamples},${this.#timeoutCount}`;
+        
+        // Write Pentair values - use empty strings for numeric values when offline
+        for (let r of this.#pentairFieldsToLog) {
+            if (pentairData === null) {
+                out += ',';  // Empty value when device offline
+            } else {
+                let val = pentairData[r];
+                if (val === null) {
+                    out += ',';
+                } else {
+                    if (typeof val === 'string') {
+                        val = parseFloat(val);
+                    }
+                    out += ',' + val.toFixed(0);
+                }
+            }
+        }
+        out += '\n';
+        this.#fs.appendFileSync(logFileName, out);
+
+        // Reset state after writing entry
+        this.#lastLogEntry = now;
+        this.#accumSamples = 0;
+        this.#regAccum = {};
+        this.#timeoutCount = 0;
+    }
+
+    flushPartialLogEntry() {
+        // Only flush if we have accumulated data
+        if (this.#accumSamples === 0) {
+            return;
+        }
+
+        try {
+            const now = this.#nowFn();
+            this.#writeLogEntry(now);
+        } catch (error) {
+            console.error('Error flushing partial log entry:', error);
+        }
+    }
+
     async updateLog() {
         await this.#getBSData();
 
         // If it's been log_entry_minutes since the last log entry, write a new one
-       const now = this.#nowFn();
+        const now = this.#nowFn();
         if (now - this.#lastLogEntry >= this.#settings.log_entry_minutes * 60 * 1000) {
-            // Compute a logfile name for the month and year
-            const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
-            const pentairData = this.#getPentairData();
-
-            // If the log file doesn't exist yet, create it with an appropriate header
-            let out = '';
-            if (!this.#fs.existsSync(logFileName)) {
-                out = this.#generateCSVHeader() + '\n';
-            }
-
-            // Write the new mean data to the log file
-            out += this.#formatTimestamp(now);
-            
-            // Write BS register values - use averages if we have samples, empty strings if not
-            for (let r of this.#registersToLog) {
-                if (this.#accumSamples > 0) {
-                    out += ',' + (this.#regAccum[r] / this.#accumSamples).toFixed(Registers[r].round || 0);
-                } else {
-                    out += ',';  // Empty value
-                }
-            }
-            out += `,${this.#accumSamples},${this.#timeoutCount}`;
-            
-            // Write Pentair values - use empty strings for numeric values when offline
-            for (let r of this.#pentairFieldsToLog) {
-                if (pentairData === null) {
-                    out += ',';  // Empty value when device offline
-                } else {
-                    let val = pentairData[r];
-                    if (val === null) {
-                        out += ',';
-                    } else {
-                        if (typeof val === 'string') {
-                            val = parseFloat(val);
-                        }
-                        out += ',' + val.toFixed(0);
-                    }
-                }
-            }
-            out += '\n';
-            this.#fs.appendFileSync(logFileName, out);
-
-            // Reset state for next log entry
-            this.#lastLogEntry = now;
-            this.#accumSamples = 0;
-            this.#regAccum = {};
-            this.#timeoutCount = 0;
+            this.#writeLogEntry(now);
         }
     }
 }
