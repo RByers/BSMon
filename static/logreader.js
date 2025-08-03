@@ -171,27 +171,54 @@ function calculateBSUptime(logEntries) {
 }
 
 /**
- * Calculate BSMon service uptime by comparing actual log entry count to expected count
+ * Calculate BSMon service uptime from log entries using serviceUptimeSeconds
  * @param {Array<Object>} logEntries - Parsed log entries
- * @param {number} logIntervalMinutes - Expected logging interval in minutes
- * @param {number} days - Number of days of data (defaults to 1)
  * @returns {number|null} Service uptime percentage or null if no data
  */
-function calculateServiceUptime(logEntries, logIntervalMinutes, days = 1) {
-    if (!logEntries || logEntries.length === 0 || !logIntervalMinutes) {
+function calculateServiceUptime(logEntries) {
+    if (!logEntries || logEntries.length === 0) {
         return null;
     }
     
-    // Expected entries = days * 24 hours * 60 minutes / interval
-    const expectedEntries = Math.floor((days * 24 * 60) / logIntervalMinutes);
-    const actualEntries = logEntries.length;
-    
-    if (expectedEntries <= 0) {
+    // Need at least 2 entries to calculate time span
+    if (logEntries.length < 2) {
         return null;
     }
     
-    // Remove clamp so values >100% are visible
-    const uptime = (actualEntries / expectedEntries) * 100;
+    let totalServiceUptimeSeconds = 0;
+    
+    // Sum serviceUptimeSeconds from entries 2 through N (skip first entry)
+    // The first entry's serviceUptimeSeconds represents an unknown time span
+    // Entry i represents the interval from timestamp i-1 to timestamp i
+    for (let i = 1; i < logEntries.length; i++) {
+        const entry = logEntries[i];
+        if (entry.hasOwnProperty('serviceUptimeSeconds')) {
+            totalServiceUptimeSeconds += entry.serviceUptimeSeconds || 0;
+        }
+    }
+    
+    // Calculate total time span from first to last timestamp
+    const firstEntry = logEntries[0];
+    const lastEntry = logEntries[logEntries.length - 1];
+    
+    if (!firstEntry.Time || !lastEntry.Time) {
+        return null;
+    }
+    
+    const firstTimestamp = new Date(firstEntry.Time);
+    const lastTimestamp = new Date(lastEntry.Time);
+    
+    if (isNaN(firstTimestamp.getTime()) || isNaN(lastTimestamp.getTime())) {
+        return null;
+    }
+    
+    const totalTimeSpanSeconds = (lastTimestamp - firstTimestamp) / 1000;
+    
+    if (totalTimeSpanSeconds <= 0) {
+        return null;
+    }
+    
+    const uptime = (totalServiceUptimeSeconds / totalTimeSpanSeconds) * 100;
     return uptime;
 }
 
@@ -376,7 +403,7 @@ async function getLogMetrics(logIntervalMinutes, serverTime, days = 1) {
             dutyCycle: calculateHeaterDutyCycle(logEntries),
             pentairUptime: calculatePentairUptime(logEntries),
             bsUptime: calculateBSUptime(logEntries),
-            serviceUptime: calculateServiceUptime(logEntries, logIntervalMinutes, days),
+            serviceUptime: calculateServiceUptime(logEntries),
             clOutputAvg: calculateClOutputAverage(logEntries),
             phOutputAvg: calculatePhOutputAverage(logEntries),
             orpMinMax: calculateORPMinMax(logEntries),

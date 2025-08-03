@@ -4,7 +4,7 @@ class Logger {
     // Data reduction constants
     static REDUCTION_THRESHOLD_DAYS = 14;
     static REDUCTION_BUCKET_HOURS = 2;
-    static SUMMED_FIELDS = ['SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'PentairSeconds'];
+    static SUMMED_FIELDS = ['SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'PentairSeconds', 'serviceUptimeSeconds'];
 
     #fs;
     #settings;
@@ -42,6 +42,7 @@ class Logger {
         for (let r of this.#pentairFieldsToLog) {
             out += ',' + r;
         }
+        out += ',serviceUptimeSeconds';
         return out;
     }
 
@@ -290,6 +291,9 @@ class Logger {
         const pentairData = this.#getPentairData();
         const logFileName = `static/log-${now.getFullYear()}-${now.getMonth() + 1}.csv`;
 
+        // Calculate service uptime seconds since last log entry
+        const serviceUptimeSeconds = Math.round((now - this.#lastLogEntry) / 1000);
+
         // If the log file doesn't exist yet, create it with an appropriate header
         let out = '';
         if (!this.#fs.existsSync(logFileName)) {
@@ -325,6 +329,9 @@ class Logger {
                 }
             }
         }
+        
+        // Write service uptime seconds
+        out += ',' + serviceUptimeSeconds;
         out += '\n';
         this.#fs.appendFileSync(logFileName, out);
 

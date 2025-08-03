@@ -1,5 +1,5 @@
 // Unit tests for client-side log reader functionality
-const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime, calculateBSUptime, calculateClOutputAverage, calculatePhOutputAverage } = require('../static/logreader');
+const { parseCSV, calculateHeaterDutyCycle, calculatePentairUptime, calculateBSUptime, calculateServiceUptime, calculateClOutputAverage, calculatePhOutputAverage } = require('../static/logreader');
 
 // Mock fetch for testing
 global.fetch = jest.fn();
@@ -477,6 +477,63 @@ describe('LogReader', () => {
 
             // (50 + 75) / (50 + 50 + 75 + 25) = 125/200 = 62.5%
             expect(result).toBeCloseTo(62.5, 1);
+        });
+    });
+
+    describe('calculateServiceUptime', () => {
+        it('calculates service uptime correctly', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', serviceUptimeSeconds: 600 }, // Skip first entry (unknown time span)
+                { Time: '2024-01-01T12:10:00Z', serviceUptimeSeconds: 480 }, // 8 minutes
+                { Time: '2024-01-01T12:20:00Z', serviceUptimeSeconds: 300 }  // 5 minutes
+            ];
+
+            const result = calculateServiceUptime(logEntries);
+
+            // Total service uptime seconds: Skip first (600), so 480 + 300 = 780
+            // Time span: 20 minutes = 1200 seconds
+            // Uptime: 780 / 1200 = 65%
+            expect(result).toBe(65);
+        });
+
+        it('returns null for single entry (need at least 2 for time span)', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', serviceUptimeSeconds: 600 }
+            ];
+
+            const result = calculateServiceUptime(logEntries);
+            expect(result).toBeNull();
+        });
+
+        it('handles partial downtime correctly', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', serviceUptimeSeconds: 600 }, // Skip first entry
+                { Time: '2024-01-01T12:10:00Z', serviceUptimeSeconds: 300 }, // 5 minutes down, 5 minutes up
+                { Time: '2024-01-01T12:20:00Z', serviceUptimeSeconds: 600 }  // Full uptime
+            ];
+
+            const result = calculateServiceUptime(logEntries);
+
+            // Total service uptime: Skip first (600), so 300 + 600 = 900
+            // Time span: 20 minutes = 1200 seconds
+            // Uptime: 900 / 1200 = 75%
+            expect(result).toBe(75);
+        });
+
+        it('handles mixed entries with some missing fields', () => {
+            const logEntries = [
+                { Time: '2024-01-01T12:00:00Z', serviceUptimeSeconds: 600 }, // Skip first entry
+                { Time: '2024-01-01T12:10:00Z' },                           // Missing serviceUptimeSeconds
+                { Time: '2024-01-01T12:20:00Z', serviceUptimeSeconds: 300 }, // Valid entry
+                { Time: '2024-01-01T12:30:00Z', ClValue: 1.5 }              // Missing serviceUptimeSeconds
+            ];
+
+            const result = calculateServiceUptime(logEntries);
+
+            // Only processes entries with serviceUptimeSeconds: Skip first (600), so 0 + 300 + 0 = 300
+            // Time span: 30 minutes = 1800 seconds
+            // Uptime: 300 / 1800 = 16.67%
+            expect(result).toBeCloseTo(16.67, 2);
         });
     });
 

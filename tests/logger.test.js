@@ -14,7 +14,7 @@ const mockSettings = {
 };
 
 // Constants and helpers for register value creation
-const CSV_HEADERS = ['Time', 'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout', 'SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'setpoint', 'waterTemp', 'PentairSeconds'];
+const CSV_HEADERS = ['Time', 'ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout', 'SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'setpoint', 'waterTemp', 'PentairSeconds', 'serviceUptimeSeconds'];
 const LOGGER_REGISTERS = ['ClValue', 'PhValue', 'ORPValue', 'TempValue', 'ClSet', 'PhSet', 'ClYout', 'PhYout'];
 
 
@@ -286,6 +286,42 @@ describe('Logger', () => {
     }
     expect(result.SuccessCount).toBe(30); // Only first half succeeded (5 minutes = 30 polls)
     expect(result.TimeoutCount).toBe(0);
+  });
+
+  it('writes correct serviceUptimeSeconds values across multiple log entries', async () => {
+    const mockClient = makeMockBSClient(createRegisterValues(2));
+    const logger = new Logger({ bsClient: mockClient, fs: mockFs, settings: mockSettings, nowFn });
+    
+    // First log entry after 10 minutes
+    await advanceTime(mockSettings.log_entry_minutes * 60, logger);
+    
+    expect(mockFs.appendFileSync).toHaveBeenCalledTimes(1);
+    expect(logFile.content.length).toBe(2); // Header + 1 data row
+    
+    let result = logFile.getLastDataRow();
+    expect(result.serviceUptimeSeconds).toBe(600); // 10 minutes = 600 seconds
+    
+    // Enable existing file mock for subsequent writes
+    mockFs.existsSync.mockReturnValue(true);
+    
+    // Second log entry after another 10 minutes
+    await advanceTime(mockSettings.log_entry_minutes * 60, logger);
+    
+    expect(mockFs.appendFileSync).toHaveBeenCalledTimes(2);
+    expect(logFile.content.length).toBe(3); // Header + 2 data rows
+    
+    result = logFile.getLastDataRow();
+    expect(result.serviceUptimeSeconds).toBe(600); // Another 10 minutes = 600 seconds
+    
+    // Third log entry after 5 minutes (partial flush)
+    await advanceTime(5 * 60, logger);
+    logger.flushPartialLogEntry();
+    
+    expect(mockFs.appendFileSync).toHaveBeenCalledTimes(3);
+    expect(logFile.content.length).toBe(4); // Header + 3 data rows
+    
+    result = logFile.getLastDataRow();
+    expect(result.serviceUptimeSeconds).toBe(300); // 5 minutes = 300 seconds
   });
 
   describe('Pentair Connection Time Tests', () => {
@@ -782,7 +818,7 @@ describe('Logger', () => {
       
       const result = logger.getLast24HoursCSV(nowFn);
       
-      expect(result).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds\n');
+      expect(result).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds,serviceUptimeSeconds\n');
     });
 
     it('filters entries from last 24 hours correctly', () => {
@@ -802,7 +838,7 @@ describe('Logger', () => {
       const lines = result.split('\n').filter(line => line.trim() !== '');
       
       expect(lines).toHaveLength(3); // Header + 2 data lines
-      expect(lines[0]).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds');
+      expect(lines[0]).toBe('Time,ClValue,PhValue,ORPValue,TempValue,ClSet,PhSet,ClYout,PhYout,SuccessCount,TimeoutCount,HeaterOnSeconds,setpoint,waterTemp,PentairSeconds,serviceUptimeSeconds');
       expect(lines[1]).toBe('1/1/2024 14:00:00,1.1,7.3,655,76,1.1,7.3,55,30,60,0,400,80,77,600');
       expect(lines[2]).toBe('1/2/2024 10:00:00,1.2,7.1,645,74,1.2,7.1,45,20,60,0,200,80,75,600');
     });
