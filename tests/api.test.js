@@ -1,4 +1,8 @@
 const http = require('http');
+
+// Mock the settings module
+jest.mock('../settings.json', () => require('./settings-test.json'), { virtual: true });
+
 const { app, startServer, stopServer } = require('../server');
 
 describe('GET /api/status', () => {

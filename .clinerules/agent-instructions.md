@@ -28,4 +28,10 @@
 * When updating UI where you have access to a web browser, load the UI in a browser to ensure it looks as requested and itereate as necessary.
 * Be concise and precise. Keep responses to a minimum unless asked to elaborate.
 * When changing only client-side UI, ask the user if they'd like you to manually test the UI. If so, use your built-in browser tool to open index.html using "#serverHost" to point to the server. If you don't know the server hostname, ask the user. Use the `view` parameter to jump directly to the view you want to test.
-* When changing the server, assume that `npx nodemon server.js` is already running and just use your browser tool to open localhost. 
+* When changing the server, assume that `npx nodemon server.js` is already running and just use your browser tool to open localhost.
+
+# Testing
+* Before running tests, make sure all dependencies are installed by running `npm install`.
+* The tests require a `settings-test.json` file to be present in the `tests/` directory. This file should have `use_fake_controller` set to `true` and have a valid VAPID key pair.
+* Run the tests using `npm test`.
+* All tests should pass before submitting any changes.

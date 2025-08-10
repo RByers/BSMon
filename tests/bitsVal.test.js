@@ -1,3 +1,6 @@
+// Mock the settings module
+jest.mock('../settings.json', () => require('./settings-test.json'), { virtual: true });
+
 const { bitsVal } = require('../server');
 
 test('bitsVal returns value if no bits', () => {

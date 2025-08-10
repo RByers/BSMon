@@ -1,0 +1,13 @@
+{
+    "port": 8076,
+    "bshost": "192.168.86.5",
+    "pentair_host": "192.168.86.6",
+    "vapid_public_key": "BBMEB6h_U6F9q1MzBLjCgv_aU4zgFzR5CnpbZqcOJh1iuLJGtVuEJf_v38nqNJKKw_eU_X3DtiQLqFd80Lpn_Ok",
+    "vapid_private_key": "fc4xAC-idyIiFtMWUSre-nuUZzRDJlspCVs_KZs-d2Y",
+    "vapid_contact": "mailto:test@test.com",
+    "blusentinel_poll_seconds": 10,
+    "log_entry_minutes": 15,
+    "tls_private_key_file": "",
+    "tls_cert_file": "",
+    "use_fake_controller": true
+}

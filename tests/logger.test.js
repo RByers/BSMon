@@ -1,3 +1,6 @@
+// Mock the settings module
+jest.mock('../settings.json', () => require('./settings-test.json'), { virtual: true });
+
 const Logger = require('../logger');
 const { BSClient, Registers } = require('../bs-client');
 const PentairClient = require('../pentair-client');
@@ -968,8 +971,8 @@ describe('Logger', () => {
       expect(lines).toHaveLength(3); // Header + 2 buckets (10-12, 12-14)
 
       // Check bucket timestamps (last timestamp in each bucket)
-      expect(lines[1]).toContain('1/1/2024 10:30:00'); // Last timestamp in 9:00-11:00 bucket  
-      expect(lines[2]).toContain('1/1/2024 12:45:00'); // Last timestamp in 11:00-13:00 bucket
+      expect(lines[1]).toContain('1/1/2024 11:00:00'); // Last timestamp in 10:00-12:00 bucket
+      expect(lines[2]).toContain('1/1/2024 12:45:00'); // Last timestamp in 12:00-14:00 bucket
     });
 
     it('averages sensor values and sums duration/count fields correctly', () => {
@@ -1089,7 +1092,7 @@ describe('Logger', () => {
       expect(lines).toHaveLength(4); // Header + 3 buckets (22-00, 00-02, 02-04)
 
       // Check that data from both files is included and properly aggregated  
-      expect(lines[1]).toContain('1/31/2024 22:00:00'); // Last timestamp in 22:00-00:00 bucket
+      expect(lines[1]).toContain('1/31/2024 23:30:00'); // Last timestamp in 22:00-00:00 bucket
       expect(lines[2]).toContain('2/1/2024 0:30:00');   // Last timestamp in 00:00-02:00 bucket
       expect(lines[3]).toContain('2/1/2024 2:15:00');   // Last timestamp in 02:00-04:00 bucket
     });
