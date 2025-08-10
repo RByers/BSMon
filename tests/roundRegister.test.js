@@ -1,3 +1,6 @@
+// Mock the settings module
+jest.mock('../settings.json', () => require('./settings-test.json'), { virtual: true });
+
 const { roundRegister } = require('../server');
 
 test('roundRegister rounds to specified decimals', () => {

@@ -1,4 +1,5 @@
 {
+  "name": "bsmon",
   "dependencies": {
     "express": "^4.18.2",
     "modbus-serial": "^8.0.11",
