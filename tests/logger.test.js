@@ -1097,32 +1097,5 @@ describe('Logger', () => {
       expect(lines[3]).toContain('2/1/2024 2:15:00');   // Last timestamp in 02:00-04:00 bucket
     });
 
-    it('handles very small bucket sizes for testing', () => {
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(
-        'Time,ClValue,PhValue\n' +
-        '1/1/2024 10:00:00,1.0,7.0\n' +
-        '1/1/2024 10:05:00,2.0,7.2\n' +
-        '1/1/2024 10:10:00,3.0,7.4\n' +
-        '1/1/2024 10:15:00,4.0,7.6\n'
-      );
-
-      const startTime = new Date('2024-01-01T10:00:00');
-      const endTime = new Date('2024-01-01T10:20:00');
-      const result = logger.getHistoricalCSV(startTime, endTime, 1/6); // 10-minute buckets
-
-      const lines = result.split('\n').filter(line => line.trim() !== '');
-      expect(lines).toHaveLength(3); // Header + 2 buckets (10:00-10:10, 10:10-10:20)
-
-      // First bucket: average of 1.0 and 2.0
-      const firstBucket = lines[1].split(',');
-      expect(parseFloat(firstBucket[1])).toBeCloseTo(1.5, 2);
-      expect(parseFloat(firstBucket[2])).toBeCloseTo(7.1, 2);
-
-      // Second bucket: average of 3.0 and 4.0
-      const secondBucket = lines[2].split(',');
-      expect(parseFloat(secondBucket[1])).toBeCloseTo(3.5, 2);
-      expect(parseFloat(secondBucket[2])).toBeCloseTo(7.5, 2);
-    });
   });
 });

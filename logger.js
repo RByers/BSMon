@@ -103,58 +103,42 @@ class Logger {
     getHistoricalCSV(startTime, endTime, bucketHours = null) {
         const filesToCheck = this.getLogFilesForTimeRange(startTime, endTime);
         const header = this.#generateCSVHeader();
-        const dayRange = (endTime - startTime) / (1000 * 60 * 60 * 24);
-        const bucketMs = bucketHours ? bucketHours * 60 * 60 * 1000 : null;
-
         const lines = [header];
         let currentBucket = null;
         let currentBucketStart = null;
         const headerFields = header.split(',');
-        
-        // Single file reading loop - shared between both modes
+
         for (const fileName of filesToCheck) {
             if (this.#fs.existsSync(fileName)) {
                 try {
                     const content = this.#fs.readFileSync(fileName, 'utf8');
                     const fileLines = content.split('\n');
-                    
-                    // Get the actual file header (first line)
-                    let fileHeaderFields = null;
-                    if (fileLines.length > 0) {
-                        fileHeaderFields = fileLines[0].split(',');
-                    }
-                    
-                    for (let i = 1; i < fileLines.length; i++) { // Skip header (line 0)
+                    const fileHeaderFields = fileLines.length > 0 ? fileLines[0].split(',') : null;
+
+                    for (let i = 1; i < fileLines.length; i++) {
                         const line = fileLines[i].trim();
-                        if (!line) continue; // Skip empty lines
-                        
-                        // Parse timestamp from first column
+                        if (!line) continue;
                         const firstComma = line.indexOf(',');
-                        if (firstComma === -1) continue; // Invalid line
-                        
+                        if (firstComma === -1) continue;
                         const timestampStr = line.substring(0, firstComma);
                         const timestamp = new Date(timestampStr);
-                        
-                        // Check if timestamp is within time range
+
                         if (timestamp >= startTime && timestamp <= endTime) {
-                            if (bucketMs) {
-                                const bucketStart = Math.floor(timestamp.getTime() / bucketMs) * bucketMs;
-                                
-                                // If we've moved to a new bucket, finalize the current one
-                                if (currentBucket && bucketStart !== currentBucketStart) {
+                            if (bucketHours) {
+                                const bucketStart = this.#quantizeDateToBucket(timestamp, bucketHours);
+
+                                if (currentBucket && bucketStart.getTime() !== currentBucketStart.getTime()) {
                                     lines.push(this.#bucketToCSVLine(currentBucket, headerFields));
                                     currentBucket = null;
                                 }
-                                
-                                // Initialize or add to current bucket
+
                                 if (!currentBucket) {
-                                    currentBucket = {
-                                        values: {},
-                                        counts: {}
-                                    };
+                                    currentBucket = { values: {}, counts: {} };
                                     currentBucketStart = bucketStart;
                                 }
-                                
+
+                                // For consistency with non-aggregated logging, the timestamp for a bucket
+                                // is the timestamp of the last entry in that bucket.
                                 currentBucket.timestamp = timestamp;
                                 this.#addLineToBucket(currentBucket, line, fileHeaderFields);
                             } else {
@@ -167,13 +151,18 @@ class Logger {
                 }
             }
         }
-        
-        // Don't forget the final bucket!
+
         if (currentBucket) {
             lines.push(this.#bucketToCSVLine(currentBucket, headerFields));
         }
-        
+
         return lines.join('\n') + '\n';
+    }
+
+    #quantizeDateToBucket(date, hours) {
+        const newDate = new Date(date);
+        newDate.setHours(Math.floor(newDate.getHours() / hours) * hours, 0, 0, 0);
+        return newDate;
     }
 
     #addLineToBucket(bucket, line, headerFields) {
