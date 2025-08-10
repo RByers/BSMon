@@ -11,26 +11,25 @@ const Logger = require('./logger');
 
 const settings = require('./settings.json');
 
+function isSimpleString(unsafeStr) {
+    if (typeof unsafeStr !== 'string' || 
+        unsafeStr.length === 0 || 
+        unsafeStr.length > 256 ||
+        unsafeStr.includes('\0')) {
+        return false;
+    }
+    return true;
+}
+
 // Security validation functions
 function isValidPushEndpoint(unsafeUrl) {
-    if (typeof unsafeUrl !== 'string') return false;
-    
+    if (!isSimpleString(unsafeUrl)) return false;
     try {
         const url = new URL(unsafeUrl);
         return url.protocol === 'https:' && url.hostname === 'fcm.googleapis.com';
     } catch {
         return false;
     }
-}
-
-function isValidETag(unsafeETag) {
-    return typeof unsafeETag === 'string' && unsafeETag.length < 256;
-}
-
-function isValidBase64(str) {
-    if (typeof str !== 'string') return false;
-    // Base64 regex pattern
-    return /^[A-Za-z0-9+/]*(=|==)?$/.test(str) && str.length > 0;
 }
 
 function validateSubscriptionData(unsafeData) {
@@ -60,11 +59,11 @@ function validateSubscriptionData(unsafeData) {
         return { valid: false, error: 'Missing subscription keys' };
     }
 
-    if (!isValidBase64(unsafeSubscription.keys.p256dh)) {
+    if (!isSimpleString(unsafeSubscription.keys.p256dh)) {
         return { valid: false, error: 'Invalid p256dh key' };
     }
 
-    if (!isValidBase64(unsafeSubscription.keys.auth)) {
+    if (!isSimpleString(unsafeSubscription.keys.auth)) {
         return { valid: false, error: 'Invalid auth key' };
     }
     data.subscription.keys = {

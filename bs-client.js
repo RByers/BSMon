@@ -102,7 +102,7 @@ class BSClient {
             
             try {
                 await this.connect();
-                console.log('BluSentinel connection successful');
+                console.log(`BluSentinel connection to ${this.#settings.bshost} established`);
                 this.#reconnectAttempts = 0; // Reset on successful connection
             } catch (error) {
                 console.error(`BluSentinel reconnect attempt ${this.#reconnectAttempts} failed:`, error.message);
