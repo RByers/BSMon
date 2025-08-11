@@ -686,6 +686,16 @@ function renderChart(viewName, logEntries) {
     });
 }
 
+function openModal(modal) {
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+}
+
+function closeModal(modal) {
+    modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+}
+
 function setupRawDataModal() {
     const viewRawDataBtn = $('view-raw-data');
     const closeRawDataBtn = $('close-raw-data');
@@ -693,7 +703,7 @@ function setupRawDataModal() {
     const rawStatus = $('raw-status');
     
     viewRawDataBtn.onclick = async function() {
-        modal.classList.remove('hidden');
+        openModal(modal);
         rawStatus.textContent = 'Loading...';
         const data = await fetchStatus();
         if (data) {
@@ -704,13 +714,13 @@ function setupRawDataModal() {
     };
     
     closeRawDataBtn.onclick = function() {
-        modal.classList.add('hidden');
+        closeModal(modal);
     };
     
     // Close modal when clicking outside of it
-    window.onclick = function(event) {
+    modal.onclick = function(event) {
         if (event.target === modal) {
-            modal.classList.add('hidden');
+            closeModal(modal);
         }
     };
 }
@@ -800,7 +810,7 @@ function handleHashChange(event = null) {
     const view = params.get('view');
     const chartModal = $('chart-modal');
     if (view && chartConfigs[view]) {
-        chartModal.classList.remove('hidden');
+        openModal(chartModal);
 
         let oldView;
         if (event) {
@@ -813,7 +823,7 @@ function handleHashChange(event = null) {
             renderChart(view, lastMetrics?.logEntries);
         }
     } else {
-        chartModal.classList.add('hidden');
+        closeModal(chartModal);
     }
 
 }

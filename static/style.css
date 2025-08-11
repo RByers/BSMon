@@ -362,7 +362,10 @@ main {
     background-color: rgba(0, 0, 0, 0.5);
     justify-content: center;
     align-items: center;
-    overscroll-behavior: contain;
+}
+
+body.modal-open {
+    overflow: hidden;
 }
 
 .modal.hidden {
