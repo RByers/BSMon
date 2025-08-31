@@ -376,9 +376,8 @@ body.modal-open {
     background-color: white;
     border-radius: var(--border-radius);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    width: 90%;
-    max-width: 800px;
-    max-height: 90%;
+    width: min(90vw, 1200px);
+    aspect-ratio: 16 / 9;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -386,7 +385,7 @@ body.modal-open {
 
 /* Chart modal specific styling */
 #chart-modal .modal-content {
-    min-height: 0; /* Allow flex item to shrink below content size */
+    /* Fixed aspect ratio ensures consistent size */
 }
 
 .modal-header {
@@ -436,10 +435,7 @@ body.modal-open {
 
 #chart-canvas {
     padding: var(--spacing-unit);
-    max-width: 100%;
-    max-height: 70vh;
     width: 100%;
-    height: auto;
     flex: 1;
     min-height: 0; /* Allow canvas to shrink */
 }
@@ -541,8 +537,8 @@ body.modal-open {
     
     /* Adjust modal */
     .modal-content {
-        width: 95%;
-        max-height: 95%;
+        width: 95vw;
+        aspect-ratio: 4 / 3; /* Better for mobile screens */
     }
     
     .raw-status {
@@ -552,13 +548,16 @@ body.modal-open {
     
     /* Adjust chart canvas for mobile */
     #chart-canvas {
-        max-height: 60vh;
         padding: 8px;
     }
 }
 
 /* Short viewport responsiveness (mobile landscape, etc.) */
 @media (max-height: 500px) {
+    .modal-content {
+        aspect-ratio: 3 / 2; /* Even wider aspect ratio for very short viewports */
+    }
+    
     .modal-header {
         padding: 4px 8px;
     }
@@ -577,11 +576,6 @@ body.modal-open {
     }
     
     #chart-canvas {
-        max-height: 85vh;
         padding: 4px;
-    }
-    
-    .modal-content {
-        max-height: 95%;
     }
 }
