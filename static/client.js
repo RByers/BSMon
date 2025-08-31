@@ -170,7 +170,17 @@ async function updateServerSubscription(subscribed) {
     });
     let status;
     if (resp.status !== 200) {
-        status = `Subscription update failed: ${resp.status} ${resp.statusText}`;
+        // Read the detailed error message from the server response
+        const errorDetails = await resp.text();
+        status = `Subscription update failed: ${resp.status} ${resp.statusText} - ${errorDetails}`;
+        // Log the error details to console for debugging
+        console.error('Subscription error details:', {
+            status: resp.status,
+            statusText: resp.statusText,
+            errorMessage: errorDetails,
+            endpoint: endpoint,
+            requestBody: body
+        });
     } else {
         status = await resp.text();
     }

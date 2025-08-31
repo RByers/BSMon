@@ -22,11 +22,53 @@ function isSimpleString(unsafeStr) {
 }
 
 // Security validation functions
+// 
+// Validates push notification endpoints for security purposes.
+// Push endpoints function as "capability URLs" where knowledge of the URL grants 
+// permission to send notifications. Validation prevents data leakage and unauthorized access.
+//
+// Supported providers:
+// - Google Firebase Cloud Messaging (FCM): https://firebase.google.com/docs/cloud-messaging/concept-options
+// - Apple Push Notification Service (APNs): https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns  
+// - Web Push Protocol (RFC 8030): https://tools.ietf.org/html/rfc8030
 function isValidPushEndpoint(unsafeUrl) {
     if (!isSimpleString(unsafeUrl)) return false;
     try {
         const url = new URL(unsafeUrl);
-        return url.protocol === 'https:' && url.hostname === 'fcm.googleapis.com';
+        
+        // Must use HTTPS for security (required by RFC 8030)
+        if (url.protocol !== 'https:') return false;
+        
+        const hostname = url.hostname.toLowerCase();
+        const path = url.pathname;
+        const port = url.port;
+        
+        // Validate Google Firebase Cloud Messaging (FCM) endpoints
+        // Documentation: https://firebase.google.com/docs/cloud-messaging/concept-options
+        const isGoogleDomain = hostname.endsWith('.google.com') || 
+                              hostname.endsWith('.googleapis.com') ||
+                              hostname === 'fcm.googleapis.com' ||
+                              hostname === 'android.googleapis.com';
+        
+        if (isGoogleDomain) {
+            // Google FCM/GCM endpoints must have valid push paths
+            return path.startsWith('/fcm/send/') || path.startsWith('/gcm/send/');
+        }
+        
+        // Validate Apple Push Notification Service (APNs) endpoints  
+        // Documentation: https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns
+        const isApnsDomain = hostname === 'api.push.apple.com' || 
+                            hostname === 'api.sandbox.push.apple.com';
+        
+        if (isApnsDomain) {
+            // APNs endpoints use specific ports and path format
+            const isValidPort = !port || port === '443' || port === '2197';
+            const hasValidPath = path.startsWith('/3/device/');
+            return isValidPort && hasValidPath;
+        }
+        
+        // Reject all other domains for security
+        return false;
     } catch {
         return false;
     }
