@@ -284,7 +284,7 @@ app.get('/api/logs', (req, res) => {
         const now = new Date();
         const startTime = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
         
-        // Generate ETag based on log file metadata
+        // Generate ETag based on log file metadata and intelligent bucket sizing
         const etag = logger.getLogFilesETag(startTime, now);
         res.setHeader('ETag', etag);
         
@@ -295,11 +295,8 @@ app.get('/api/logs', (req, res) => {
             return;
         }
         
-        // Apply data reduction for long-term requests
-        const bucketHours = days > Logger.REDUCTION_THRESHOLD_DAYS ? Logger.REDUCTION_BUCKET_HOURS : null;
-        
-        // Generate and send the CSV data
-        const csvData = logger.getHistoricalCSV(startTime, now, bucketHours);
+        // Generate and send the CSV data with intelligent bucket sizing
+        const csvData = logger.getHistoricalCSV(startTime, now);
         res.send(csvData);
     } catch (error) {
         console.error("Error generating log data:", error, error.stack);

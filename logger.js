@@ -3,7 +3,6 @@ const { Registers } = require('./bs-client');
 class Logger {
     // Data reduction constants
     static REDUCTION_THRESHOLD_DAYS = 14;
-    static REDUCTION_BUCKET_HOURS = 2;
     static SUMMED_FIELDS = ['SuccessCount', 'TimeoutCount', 'HeaterOnSeconds', 'PentairSeconds', 'serviceUptimeSeconds'];
 
     #fs;
@@ -87,26 +86,45 @@ class Logger {
         });
     }
 
+    // Determine appropriate bucket size based on time range
+    #getBucketHours(startTime, endTime) {
+        const totalHours = (endTime - startTime) / (1000 * 60 * 60);
+        
+        if (totalHours <= 72) { // 1-3 days
+            return null; // No aggregation - raw data
+        } else if (totalHours <= 168) { // 7 days
+            return 0.5; // 30-minute buckets
+        } else {
+            return 2; // 2-hour buckets for longer periods
+        }
+    }
+
     getLogFilesETag(startTime, endTime) {
         const files = this.getLogFilesForTimeRange(startTime, endTime);
         const metadata = this.getLogFileMetadata(files);
-        
-        // Create ETag from file metadata - includes modification times and sizes
-        const etag = metadata
+        const bucketHours = this.#getBucketHours(startTime, endTime);
+
+        // Create ETag from bucket size and file metadata
+        const fileEtag = metadata
             .filter(meta => meta.exists)
             .map(meta => `${meta.mtime}-${meta.size}`)
             .join('|');
         
-        return etag ? `"${etag}"` : '"empty"';
+        const bucketPrefix = bucketHours === null ? 'raw' : bucketHours.toString();
+        const etag = fileEtag ? `${bucketPrefix}_${fileEtag}` : 'empty';
+        
+        return `"${etag}"`;
     }
 
-    getHistoricalCSV(startTime, endTime, bucketHours = null) {
+    getHistoricalCSV(startTime, endTime) {
         const filesToCheck = this.getLogFilesForTimeRange(startTime, endTime);
         const header = this.#generateCSVHeader();
         const lines = [header];
         let currentBucket = null;
         let currentBucketStart = null;
         const headerFields = header.split(',');
+
+        const bucketHours = this.#getBucketHours(startTime, endTime);
 
         for (const fileName of filesToCheck) {
             if (this.#fs.existsSync(fileName)) {

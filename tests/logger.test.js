@@ -769,7 +769,7 @@ describe('Logger', () => {
         const etag2 = logger.getLogFilesETag(start, end);
         
         expect(etag1).toBe(etag2);
-        expect(etag1).toMatch(/^"[\d-|]+"$/); // Should be quoted string with mtime-size format
+        expect(etag1).toMatch(/^"raw_[\d-|]+"$/); // Should be quoted string with bucket prefix and mtime-size format
       });
 
       it('generates different ETags for different file metadata', () => {
@@ -952,7 +952,7 @@ describe('Logger', () => {
       logger = new Logger({ fs: mockFs });
     });
 
-    it('applies 2-hour data reduction when bucketHours parameter is provided', () => {
+    it('applies 2-hour data reduction for 15-day time range', () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(
         'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
@@ -964,8 +964,8 @@ describe('Logger', () => {
       );
 
       const startTime = new Date('2024-01-01T10:00:00');
-      const endTime = new Date('2024-01-01T13:00:00');
-      const result = logger.getHistoricalCSV(startTime, endTime, 2); // 2-hour buckets
+      const endTime = new Date('2024-01-16T13:00:00'); // 15-day range triggers 2-hour buckets
+      const result = logger.getHistoricalCSV(startTime, endTime);
 
       const lines = result.split('\n').filter(line => line.trim() !== '');
       expect(lines).toHaveLength(3); // Header + 2 buckets (10-12, 12-14)
@@ -975,7 +975,7 @@ describe('Logger', () => {
       expect(lines[2]).toContain('1/1/2024 12:45:00'); // Last timestamp in 12:00-14:00 bucket
     });
 
-    it('averages sensor values and sums duration/count fields correctly', () => {
+    it('averages sensor values and sums duration/count fields correctly for 7-day range (0.5-hour buckets)', () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(
         'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
@@ -984,8 +984,8 @@ describe('Logger', () => {
       );
 
       const startTime = new Date('2024-01-01T10:00:00');
-      const endTime = new Date('2024-01-01T11:00:00');
-      const result = logger.getHistoricalCSV(startTime, endTime, 1); // 1-hour bucket
+      const endTime = new Date('2024-01-08T11:00:00'); // 7-day range triggers 0.5-hour buckets
+      const result = logger.getHistoricalCSV(startTime, endTime);
 
       const lines = result.split('\n').filter(line => line.trim() !== '');
       const dataLine = lines[1].split(',');
@@ -1000,7 +1000,7 @@ describe('Logger', () => {
       expect(parseInt(dataLine[11])).toBe(900); // HeaterOnSeconds
     });
 
-    it('skips empty periods with no data points', () => {
+    it('skips empty periods with no data points for 15-day range (2-hour buckets)', () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(
         'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
@@ -1009,8 +1009,8 @@ describe('Logger', () => {
       );
 
       const startTime = new Date('2024-01-01T10:00:00');
-      const endTime = new Date('2024-01-01T15:00:00');
-      const result = logger.getHistoricalCSV(startTime, endTime, 2); // 2-hour buckets
+      const endTime = new Date('2024-01-16T15:00:00'); // 15-day range triggers 2-hour buckets
+      const result = logger.getHistoricalCSV(startTime, endTime);
 
       const lines = result.split('\n').filter(line => line.trim() !== '');
       expect(lines).toHaveLength(3); // Header + 2 buckets (10-12, 14-16), skipping 12-14
@@ -1019,7 +1019,7 @@ describe('Logger', () => {
       expect(lines[2]).toContain('1/1/2024 14:00:00'); // Second bucket (only 14:00:00 in 14-16 range)
     });
 
-    it('handles empty values in data correctly', () => {
+    it('handles empty values in data correctly for 7-day range (0.5-hour buckets)', () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(
         'Time,ClValue,PhValue,SuccessCount,TimeoutCount,HeaterOnSeconds\n' +
@@ -1028,8 +1028,8 @@ describe('Logger', () => {
       );
 
       const startTime = new Date('2024-01-01T10:00:00');
-      const endTime = new Date('2024-01-01T11:00:00');
-      const result = logger.getHistoricalCSV(startTime, endTime, 1); // 1-hour bucket
+      const endTime = new Date('2024-01-08T11:00:00'); // 7-day range triggers 0.5-hour buckets
+      const result = logger.getHistoricalCSV(startTime, endTime);
 
       const lines = result.split('\n').filter(line => line.trim() !== '');
       const dataLine = lines[1].split(',');
@@ -1067,7 +1067,7 @@ describe('Logger', () => {
       expect(lines[3]).toContain('1/1/2024 11:00:00');
     });
 
-    it('handles multiple log files with data reduction', () => {
+    it('handles multiple log files with data reduction for 15-day range', () => {
       mockFs.existsSync.mockImplementation((filename) => {
         return filename === 'static/log-2024-1.csv' || filename === 'static/log-2024-2.csv';
       });
@@ -1085,8 +1085,8 @@ describe('Logger', () => {
       });
 
       const startTime = new Date('2024-01-31T22:00:00');
-      const endTime = new Date('2024-02-01T03:00:00');
-      const result = logger.getHistoricalCSV(startTime, endTime, 2); // 2-hour buckets
+      const endTime = new Date('2024-02-16T03:00:00'); // 15-day range triggers 2-hour buckets
+      const result = logger.getHistoricalCSV(startTime, endTime);
 
       const lines = result.split('\n').filter(line => line.trim() !== '');
       expect(lines).toHaveLength(4); // Header + 3 buckets (22-00, 00-02, 02-04)
