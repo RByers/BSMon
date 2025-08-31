@@ -378,6 +378,7 @@ body.modal-open {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     width: min(90vw, 1200px);
     aspect-ratio: 16 / 9;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
