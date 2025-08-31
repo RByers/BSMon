@@ -278,7 +278,7 @@ app.get('/api/logs', (req, res) => {
         // Parse and validate days parameter (UNSAFE: user input)
         const unsafeDaysParam = req.query.days;
         let days = parseInt(unsafeDaysParam) || 1; // Default to 1 day (24h)
-        days = Math.max(1, Math.min(30, days)); // Cap between 1 and 30 days
+        days = Math.max(1, Math.min(182, days)); // Cap between 1 and 182 days
         
         const logger = new Logger();
         const now = new Date();

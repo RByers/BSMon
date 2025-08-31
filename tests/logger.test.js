@@ -705,6 +705,23 @@ describe('Logger', () => {
         
         expect(files).toEqual(['static/log-2024-1.csv', 'static/log-2024-2.csv']);
       });
+
+      it('returns correct files for 6-month time range spanning year boundary', () => {
+        const start = new Date(2023, 10, 15); // Nov 15, 2023
+        const end = new Date(2024, 4, 20);    // May 20, 2024
+        
+        const files = logger.getLogFilesForTimeRange(start, end);
+        
+        expect(files).toEqual([
+          'static/log-2023-11.csv',
+          'static/log-2023-12.csv',
+          'static/log-2024-1.csv',
+          'static/log-2024-2.csv',
+          'static/log-2024-3.csv',
+          'static/log-2024-4.csv',
+          'static/log-2024-5.csv'
+        ]);
+      });
     });
 
     describe('getLogFileMetadata', () => {

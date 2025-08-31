@@ -641,10 +641,12 @@ function renderChart(viewName, logEntries) {
         x: {
             type: 'time',
             time: {
-                unit: currentTimePeriod === 1 ? 'hour' : 'day',
+                unit: currentTimePeriod === 1 ? 'hour' : 
+                      currentTimePeriod <= 30 ? 'day' : 'month',
                 displayFormats: {
                     hour: 'h a',
-                    day: 'MMM d'
+                    day: 'MMM d',
+                    month: 'MMM'
                 }
             }
         }

@@ -46,20 +46,16 @@ class Logger {
     }
 
     getLogFilesForTimeRange(startTime, endTime) {
-        const currentMonth = endTime.getMonth() + 1;
-        const currentYear = endTime.getFullYear();
-        const previousMonth = startTime.getMonth() + 1;
-        const previousYear = startTime.getFullYear();
+        const files = [];
+        const current = new Date(startTime.getFullYear(), startTime.getMonth(), 1);
+        const end = new Date(endTime.getFullYear(), endTime.getMonth(), 1);
         
-        const filesToCheck = [];
-        
-        // Add files in chronological order to preserve sort
-        if (previousYear !== currentYear || previousMonth !== currentMonth) {
-            filesToCheck.push(`static/log-${previousYear}-${previousMonth}.csv`);
+        while (current <= end) {
+            files.push(`static/log-${current.getFullYear()}-${current.getMonth() + 1}.csv`);
+            current.setMonth(current.getMonth() + 1);
         }
-        filesToCheck.push(`static/log-${currentYear}-${currentMonth}.csv`);
         
-        return filesToCheck;
+        return files;
     }
 
     getLogFileMetadata(files) {
@@ -92,10 +88,12 @@ class Logger {
         
         if (totalHours <= 72) { // 1-3 days
             return null; // No aggregation - raw data
-        } else if (totalHours <= 168) { // 7 days
+        } else if (totalHours <= 7 * 24) { // 7 days
             return 0.5; // 30-minute buckets
+        } else if (totalHours <= 30 * 24) { // 1 month
+            return 2;
         } else {
-            return 2; // 2-hour buckets for longer periods
+            return 24; // day-long buckets for longer periods
         }
     }
 
