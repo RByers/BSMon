@@ -59,14 +59,7 @@ class PentairClient {
                         // Disconnected intentionally
                         return;
                     }
-                    this.reconnectTimeout = setTimeout(async () => {
-                        try {
-                            await this.connect();
-                        } catch (error) {
-                            console.error('Pentair reconnection failed:', error.message);
-                        }
-                    }, this.reconnectDelay);
-                    this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000);
+                    this.scheduleReconnect();
                 });
 
                 this.#ws.on('error', (error) => {
@@ -198,6 +191,24 @@ class PentairClient {
         if (this.#ws && this.#ws.readyState === WebSocket.OPEN) {
             this.#ws.send(JSON.stringify(bodyMessage));
         }
+    }
+
+    scheduleReconnect() {
+        // Clear any existing reconnection timeout
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+        }
+
+        this.reconnectTimeout = setTimeout(async () => {
+            try {
+                await this.connect();
+            } catch (error) {
+                console.error('Pentair reconnection failed:', error.message);
+                // Continue trying with exponential backoff
+                this.reconnectDelay = Math.min(this.reconnectDelay * 2, 5 * 60 * 1000);
+                this.scheduleReconnect();
+            }
+        }, this.reconnectDelay);
     }
 
     disconnect() {

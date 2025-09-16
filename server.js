@@ -582,6 +582,8 @@ if (require.main === module) {
             console.log(`Pentair connection to ${settings.pentair_host} established`);
         }).catch((err) => {
             console.error('Failed to establish initial Pentair connection:', err.message);
+            // Start persistent reconnection attempts
+            pentairClient.scheduleReconnect();
         });
     } else {
         console.log("No Pentair host configured, skipping Pentair client setup.");
