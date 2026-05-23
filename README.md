@@ -7,13 +7,9 @@ This project is a tiny node.js server and web app front-end which is designed to
 
 As a weekend hobby project with likely no (or few) other users, I have not bothtered to invest in good software engineering practices such as automated testing and penetration testing. Use at your own risk, it's not impossible that this package could somehow damage your controller or allow an attacker to alter your pool chemistry.
 
-Here's an image of the web app (with admitadly terrible UX):\
-<img src="https://github.com/RByers/BSMon/assets/1280419/643387b1-78ba-429f-b6d7-3f325b2a8f1e" width=270>
+# Development
 
-Here's examples of the charts that I can generate from it's logs:\
-![image](https://github.com/RByers/BSMon/assets/1280419/cc2dcdd0-da1e-4102-9a26-67d7ed849cd6)
-![image](https://github.com/RByers/BSMon/assets/1280419/b6e02837-72f8-4af9-96f4-d1ed46bed5d0)
-![image](https://github.com/RByers/BSMon/assets/1280419/a089d257-1edd-4f11-8b07-62cb807d7f30)
-![image](https://github.com/RByers/BSMon/assets/1280419/5ff065e0-aa70-4e25-888e-d41ee24e3802)
+- To run the server: `npx nodemon server.js`
+- To run the tests: `npm test`
 
 

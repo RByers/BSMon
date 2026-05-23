@@ -328,7 +328,7 @@ describe('Logger', () => {
   });
 
   describe('Pentair Connection Time Tests', () => {
-    const MOCK_SERVER_PORT = 6680; // Different port from heater tests
+    const MOCK_SERVER_PORT = 41323; // Different port from heater tests
     
     let mockServer;
     let testClient;
@@ -461,7 +461,7 @@ describe('Logger', () => {
   });
 
   describe('Heater On Seconds Tests', () => {
-    const MOCK_SERVER_PORT = 6681;
+    const MOCK_SERVER_PORT = 41324;
     
     let mockServer;
     let testClient;

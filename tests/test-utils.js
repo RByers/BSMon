@@ -21,7 +21,7 @@ function drainEventLoop() {
 // Mock Pentair server that implements the WebSocket protocol
 class MockPentairServer {
   constructor(port) {
-    this.server = new WebSocket.Server({ port });
+    this.server = new WebSocket.Server({ port, host: '127.0.0.1' });
     this.connections = new Set();
     this.heaterState = '0';
     this.setpoint = '80';

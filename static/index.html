@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#2196F3">
+    <meta name="description" content="Dashboard for monitoring BluSentinel and Pentair pool controller metrics.">
+    <meta name="theme-color" content="#3B82F6">
     <link rel="icon" type="image/png" href="favicon.png">
     <title id="page-title-tag">BSMon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json?v2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha256-Lye89HGy1p3XhJT24hcvsoRw64Q4IOL5a7hdOflhjTA=" crossorigin="anonymous" defer></script>
@@ -167,18 +171,18 @@
                     <button id="view-raw-data" class="secondary-button">View Raw Data</button>
                 </div>
             </div>
-            <div id="raw-data-modal" class="modal hidden">
+            <div id="raw-data-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="raw-data-title">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h2>Raw JSON Status</h2>
-                        <button id="close-raw-data" class="close-button">&times;</button>
+                        <h2 id="raw-data-title">Raw JSON Status</h2>
+                        <button id="close-raw-data" class="close-button" aria-label="Close modal">&times;</button>
                     </div>
                     <pre id="raw-status" class="raw-status">Loading...</pre>
                 </div>
             </div>
         </section>
 
-        <div id="chart-modal" class="modal hidden">
+        <div id="chart-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="chart-title">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2 id="chart-title"></h2>
@@ -194,7 +198,7 @@
                             <label for="chart-period-6m">6m</label>
                         </div>
                     </div>
-                    <button id="close-chart" class="close-button">&times;</button>
+                    <button id="close-chart" class="close-button" aria-label="Close chart">&times;</button>
                 </div>
                 <canvas id="chart-canvas"></canvas>
             </div>

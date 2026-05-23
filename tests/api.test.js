@@ -7,7 +7,7 @@ const { app, startServer, stopServer } = require('../server');
 
 describe('GET /api/status', () => {
     beforeAll((done) => {
-        startServer(8081);
+        startServer(41325);
         done();
     });
 
@@ -17,7 +17,7 @@ describe('GET /api/status', () => {
     });
 
     it('should return a JSON object with the correct structure', (done) => {
-        http.get('http://localhost:8081/api/status', (res) => {
+        http.get('http://localhost:41325/api/status', (res) => {
             let body = '';
             res.on('data', (chunk) => {
                 body += chunk;

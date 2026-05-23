@@ -2,7 +2,7 @@ const PentairClient = require('../pentair-client');
 const { MockPentairServer } = require('./test-utils');
 
 describe('PentairClient', () => {
-  const MOCK_SERVER_PORT = 6682;
+  const MOCK_SERVER_PORT = 41326;
   let mockServer;
   let pentairClient;
   let fakeNow;

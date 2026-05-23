@@ -700,11 +700,13 @@ function renderChart(viewName, logEntries) {
 
 function openModal(modal) {
     modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
 }
 
 function closeModal(modal) {
     modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
 }
 
@@ -738,6 +740,10 @@ function setupRawDataModal() {
 }
 
 async function init() {
+    // Configure global Chart.js settings for modern typography and dark mode support
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    Chart.defaults.color = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#94A3B8' : '#64748B';
+    
     const serverHost = getUrlHashParams().get('serverHost');
     if (window.location.protocol === 'file:' && serverHost) {
         const protocol = serverHost.startsWith('localhost') ? 'http' : 'https';
