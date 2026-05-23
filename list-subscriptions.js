@@ -24,13 +24,18 @@ try {
         .sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
 
     console.log(`Found ${subList.length} subscriptions:\n`);
-    console.log(String('IP Address').padEnd(20) + 'Last Seen');
+    console.log(String('Last Seen').padEnd(25) + 'IP Address');
     console.log('-'.repeat(45));
 
     for (const sub of sortedSubs) {
-        const ip = sub.lastIP || 'Unknown IP';
+        let ip = sub.lastIP || 'Unknown IP';
+        // Strip the IPv4-mapped IPv6 prefix if present
+        if (ip.startsWith('::ffff:')) {
+            ip = ip.substring(7);
+        }
+        
         const lastSeen = new Date(sub.lastSeen).toLocaleString();
-        console.log(`${String(ip).padEnd(20)}${lastSeen}`);
+        console.log(`${String(lastSeen).padEnd(25)}${ip}`);
     }
 } catch (err) {
     console.error('Error reading subscriptions:', err.message);
